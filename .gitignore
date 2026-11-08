@@ -1,0 +1,66 @@
+
+# =====================================
+# Rust
+# =====================================
+**/target/
+**/*.rs.bk
+
+# =====================================
+# Geth / Ethereum
+# =====================================
+**/geth/chaindata/
+**/geth/lightchaindata/
+**/geth/nodes/
+**/geth/keystore/
+**/geth/geth.ipc
+**/geth/*.log
+
+# Local blockchain data
+**/data/chaindata/
+**/data/lightchaindata/
+
+# =====================================
+# Python
+# =====================================
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# =====================================
+# Environment variables / secrets
+# =====================================
+.env
+.env.*
+!.env.example
+
+# =====================================
+# IDE / Editors
+# =====================================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =====================================
+# Operating System
+# =====================================
+.DS_Store
+Thumbs.db
+
+# =====================================
+# Logs
+# =====================================
+*.log
+
+# =====================================
+# Temporary files
+# =====================================
+*.tmp
+*.bak

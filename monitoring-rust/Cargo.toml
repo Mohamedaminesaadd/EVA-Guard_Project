@@ -1,0 +1,16 @@
+[package]
+name = "monitoring-rust"
+version = "0.1.0"
+edition = "2021"
+description = "EVA-Guard — Rust monitoring engine for Ethereum (Geth) nodes"
+
+[dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "time", "signal", "fs", "io-util", "sync"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+sysinfo = "0.33"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
