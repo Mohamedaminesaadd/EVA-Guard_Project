@@ -1,6 +1,10 @@
-use std::fs;
+
 use std::io;
+use std::process::Command;
 use std::time::Instant;
+use std::path::Path;
+
+use sysinfo::Networks;
 
 use crate::models::observation::NetworkMetrics;
 
@@ -11,9 +15,10 @@ struct NetworkSample {
     timestamp: Instant,
 }
 
-/// Collects host-wide network metrics from Linux /proc.
+/// Collects host-wide network metrics on Windows.
 pub struct NetworkCollector {
     previous_sample: Option<NetworkSample>,
+    networks: Networks,
 }
 
 impl NetworkCollector {
@@ -21,36 +26,49 @@ impl NetworkCollector {
     pub fn new() -> Self {
         Self {
             previous_sample: None,
+            networks: Networks::new_with_refreshed_list(),
         }
     }
 
     /// Collects network counters, traffic rates and TCP connections.
     pub fn collect(&mut self) -> io::Result<NetworkMetrics> {
-        let (rx_bytes, tx_bytes) = read_network_counters()?;
-        let tcp_connections = read_tcp_established_connections()?;
+
+        // Read Windows network counters.
+        let (rx_bytes, tx_bytes) =
+            read_network_counters(&mut self.networks);
+
+        // Count established TCP connections.
+        let tcp_connections =
+            read_tcp_established_connections()?;
 
         let now = Instant::now();
 
-        let (rx_rate, tx_rate) = if let Some(previous) = &self.previous_sample {
-            let elapsed = now.duration_since(previous.timestamp).as_secs_f64();
+        // Calculate traffic rates.
+        let (rx_rate, tx_rate) =
+            if let Some(previous) = &self.previous_sample {
 
-            if elapsed > 0.0 {
-                let rx = rx_bytes
-                    .checked_sub(previous.rx_bytes)
-                    .map(|delta| delta as f64 / elapsed);
+                let elapsed = now
+                    .duration_since(previous.timestamp)
+                    .as_secs_f64();
 
-                let tx = tx_bytes
-                    .checked_sub(previous.tx_bytes)
-                    .map(|delta| delta as f64 / elapsed);
+                if elapsed > 0.0 {
+                    let rx = rx_bytes
+                        .checked_sub(previous.rx_bytes)
+                        .map(|delta| delta as f64 / elapsed);
 
-                (rx, tx)
+                    let tx = tx_bytes
+                        .checked_sub(previous.tx_bytes)
+                        .map(|delta| delta as f64 / elapsed);
+
+                    (rx, tx)
+                } else {
+                    (None, None)
+                }
             } else {
                 (None, None)
-            }
-        } else {
-            (None, None)
-        };
+            };
 
+        // Save current sample.
         self.previous_sample = Some(NetworkSample {
             rx_bytes,
             tx_bytes,
@@ -73,59 +91,90 @@ impl Default for NetworkCollector {
     }
 }
 
-/// Reads total RX/TX bytes from /proc/net/dev.
-/// The loopback interface (lo) is excluded.
-fn read_network_counters() -> io::Result<(u64, u64)> {
-    let content = fs::read_to_string("/proc/net/dev")?;
+/// Reads total received and transmitted bytes on Windows.
+fn read_network_counters(
+    networks: &mut Networks,
+) -> (u64, u64) {
+
+    // Refresh network interfaces.
+    networks.refresh(true);
 
     let mut total_rx = 0u64;
     let mut total_tx = 0u64;
 
-    for line in content.lines().skip(2) {
-        let Some((interface, statistics)) = line.split_once(':') else {
-            continue;
-        };
+    for (interface, data) in networks.iter() {
 
-        if interface.trim() == "lo" {
-            continue;
-        }
+        let name = interface.to_lowercase();
 
-        let values: Vec<u64> = statistics
-            .split_whitespace()
-            .filter_map(|value| value.parse::<u64>().ok())
-            .collect();
-
-        if values.len() < 9 {
+        // Exclude loopback interfaces.
+        if name.contains("loopback") {
             continue;
         }
 
-        // First counter: received bytes.
-        total_rx = total_rx.saturating_add(values[0]);
+        // Total received bytes.
+        total_rx = total_rx.saturating_add(
+            data.total_received()
+        );
 
-        // Ninth counter: transmitted bytes.
-        total_tx = total_tx.saturating_add(values[8]);
+        // Total transmitted bytes.
+        total_tx = total_tx.saturating_add(
+            data.total_transmitted()
+        );
     }
 
-    Ok((total_rx, total_tx))
+    (total_rx, total_tx)
 }
 
-/// Counts system-wide established TCP connections.
-/// Reads both IPv4 and IPv6 connection tables.
+/// Counts established TCP connections on Windows.
 fn read_tcp_established_connections() -> io::Result<u64> {
-    let mut total = 0u64;
 
-    for path in ["/proc/net/tcp", "/proc/net/tcp6"] {
-        let content = fs::read_to_string(path)?;
+    // Absolute PowerShell path to avoid PATH errors.
+    let system_root = std::env::var("SystemRoot")
+        .unwrap_or_else(|_| String::from(r"C:\Windows"));
 
-        for line in content.lines().skip(1) {
-            let fields: Vec<&str> = line.split_whitespace().collect();
+    let powershell = Path::new(&system_root)
+        .join("System32")
+        .join("WindowsPowerShell")
+        .join("v1.0")
+        .join("powershell.exe");
 
-            // TCP state is the fourth column.
-            if fields.get(3) == Some(&"01") {
-                total += 1;
-            }
-        }
+    let output = Command::new(&powershell)
+        .args([
+            "-NoProfile",
+            "-NonInteractive",
+            "-Command",
+            "@(Get-NetTCPConnection -State Established -ErrorAction Stop).Count",
+        ])
+        .output()
+        .map_err(|e| {
+            io::Error::new(
+                e.kind(),
+                format!(
+                    "Cannot launch PowerShell at {}: {}",
+                    powershell.display(),
+                    e
+                ),
+            )
+        })?;
+
+    if !output.status.success() {
+        return Err(io::Error::new(
+            io::ErrorKind::Other,
+            format!(
+                "PowerShell TCP query failed: {}",
+                String::from_utf8_lossy(&output.stderr)
+            ),
+        ));
     }
 
-    Ok(total)
+    let result = String::from_utf8_lossy(&output.stdout);
+
+    let count = result.trim().parse::<u64>().map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!("Invalid TCP connection count: {}", e),
+        )
+    })?;
+
+    Ok(count)
 }
