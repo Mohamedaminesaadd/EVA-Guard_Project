@@ -64,3 +64,17 @@ Thumbs.db
 # =====================================
 *.tmp
 *.bak
+# Generated Ethereum datasets
+**/data/*.csv
+**/data/*.jsonl
+
+# Rust build artifacts
+**/target/
+
+# Environment files and secrets
+**/.env
+**/.env.*
+**/jwtsecret
+
+# Logs
+*.log
