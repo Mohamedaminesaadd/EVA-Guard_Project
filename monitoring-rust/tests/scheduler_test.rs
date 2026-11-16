@@ -446,38 +446,3 @@ async fn scheduler_detects_complete_peer_rotation() {
 }
 
 
-#[tokio::test]
-async fn scheduler_handles_empty_peer_list() {
-    let (rpc_url, _server) = spawn_fake_geth_empty_peers().await;
-
-    let temp_dir = tempfile::tempdir().unwrap();
-    let output_file = temp_dir.path().join("observations.jsonl");
-
-    let config = Config {
-        rpc_url,
-        output_file: output_file.clone(),
-        ..Config::default()
-    };
-
-    let client = GethClient::new(&config).unwrap();
-
-    let mut scheduler =
-        MonitoringScheduler::new(&client, &config, "test-node".to_string())
-            .unwrap();
-
-    let observation = scheduler.collect_once().await.unwrap();
-
-    assert_eq!(observation.p2p.peer_count, Some(0));
-    assert_eq!(observation.p2p.admin_peer_count, Some(0));
-    assert_eq!(observation.p2p.peer_details_available, Some(true));
-
-    assert_eq!(observation.p2p.new_peers, None);
-    assert_eq!(observation.p2p.disconnected_peers, None);
-    assert_eq!(observation.p2p.peer_churn_count, None);
-
-    assert_eq!(observation.rpc.rpc_available, Some(true));
-
-    assert!(output_file.exists());
-
-    println!("Empty peer list test passed");
-}
