@@ -1,0 +1,12 @@
+{
+    "missing_columns": [],
+    "missing_timestamp": 0,
+    "missing_node_id": 0,
+    "missing_scenario": 0,
+    "missing_component": 0,
+    "unknown_scenarios": [],
+    "unknown_components": [],
+    "invalid_timestamps": 0,
+    "invalid_collection_intervals": 0,
+    "exact_duplicates": 0
+}

@@ -1,0 +1,824 @@
+{
+    "missing_columns": {
+        "geth_metrics_new_peers": 15,
+        "geth_metrics_disconnected_peers": 15,
+        "geth_metrics_peer_churn_count": 15,
+        "geth_metrics_rpc_requests_per_sec": 15,
+        "geth_metrics_block_execution_ms": 315,
+        "geth_metrics_connecting_peers": 315,
+        "geth_metrics_inbound_peers": 315,
+        "geth_metrics_outbound_peers": 315,
+        "geth_metrics_unique_peer_ips": 315,
+        "geth_metrics_unique_peer_clients": 315,
+        "geth_metrics_top_client_ratio": 315,
+        "geth_metrics_finalized_epoch": 315,
+        "geth_metrics_justified_epoch": 315,
+        "geth_metrics_finality_distance_epochs": 315,
+        "geth_metrics_reorgs_total": 315,
+        "geth_metrics_head_slot": 315,
+        "geth_metrics_sync_distance": 315,
+        "geth_metrics_block_propagation_delay_ms": 315,
+        "geth_metrics_attestation_inclusion_distance": 315,
+        "geth_metrics_attestations_total": 315,
+        "geth_metrics_attestation_failures_total": 315,
+        "geth_metrics_missed_attestations_total": 315,
+        "geth_metrics_missed_attestations_last_epoch": 315,
+        "geth_metrics_blocks_proposed_total": 315,
+        "geth_metrics_block_proposal_failures_total": 315,
+        "geth_metrics_missed_proposals_total": 315,
+        "geth_metrics_validators_total": 315,
+        "geth_metrics_validators_enabled": 315,
+        "geth_metrics_attester_duties": 315,
+        "geth_metrics_proposer_duties": 315,
+        "geth_metrics_attestation_effectiveness": 315,
+        "geth_metrics_proposal_effectiveness": 315,
+        "geth_system_network_rx_bytes_per_sec": 15,
+        "geth_system_network_tx_bytes_per_sec": 15,
+        "beacon_metrics_admin_peer_count": 315,
+        "beacon_metrics_new_peers": 15,
+        "beacon_metrics_disconnected_peers": 15,
+        "beacon_metrics_peer_churn_count": 15,
+        "beacon_metrics_txpool_pending": 315,
+        "beacon_metrics_txpool_queued": 315,
+        "beacon_metrics_rpc_latency_ms": 315,
+        "beacon_metrics_rpc_requests_total": 315,
+        "beacon_metrics_rpc_failed_requests_total": 315,
+        "beacon_metrics_rpc_requests_per_sec": 315,
+        "beacon_metrics_block_number": 315,
+        "beacon_metrics_latest_block_age_secs": 315,
+        "beacon_metrics_block_execution_ms": 315,
+        "beacon_metrics_block_tx_count": 315,
+        "beacon_metrics_inbound_peers": 315,
+        "beacon_metrics_outbound_peers": 315,
+        "beacon_metrics_unique_peer_clients": 315,
+        "beacon_metrics_top_client_ratio": 315,
+        "beacon_metrics_reorgs_total": 315,
+        "beacon_metrics_attestation_inclusion_distance": 280,
+        "beacon_metrics_attestations_total": 315,
+        "beacon_metrics_attestation_failures_total": 315,
+        "beacon_metrics_missed_attestations_total": 315,
+        "beacon_metrics_missed_attestations_last_epoch": 315,
+        "beacon_metrics_blocks_proposed_total": 315,
+        "beacon_metrics_block_proposal_failures_total": 315,
+        "beacon_metrics_missed_proposals_total": 315,
+        "beacon_metrics_validators_total": 315,
+        "beacon_metrics_validators_enabled": 315,
+        "beacon_metrics_attester_duties": 315,
+        "beacon_metrics_proposer_duties": 315,
+        "beacon_metrics_attestation_effectiveness": 315,
+        "beacon_metrics_proposal_effectiveness": 315,
+        "beacon_system_network_rx_bytes_per_sec": 15,
+        "beacon_system_network_tx_bytes_per_sec": 15,
+        "validator_metrics_peer_count": 315,
+        "validator_metrics_admin_peer_count": 315,
+        "validator_metrics_new_peers": 315,
+        "validator_metrics_disconnected_peers": 315,
+        "validator_metrics_peer_churn_count": 315,
+        "validator_metrics_txpool_pending": 315,
+        "validator_metrics_txpool_queued": 315,
+        "validator_metrics_rpc_latency_ms": 315,
+        "validator_metrics_rpc_requests_total": 315,
+        "validator_metrics_rpc_failed_requests_total": 315,
+        "validator_metrics_rpc_requests_per_sec": 315,
+        "validator_metrics_block_number": 315,
+        "validator_metrics_latest_block_age_secs": 315,
+        "validator_metrics_block_execution_ms": 315,
+        "validator_metrics_block_tx_count": 315,
+        "validator_metrics_connecting_peers": 315,
+        "validator_metrics_inbound_peers": 315,
+        "validator_metrics_outbound_peers": 315,
+        "validator_metrics_unique_peer_ips": 315,
+        "validator_metrics_unique_peer_clients": 315,
+        "validator_metrics_top_client_ratio": 315,
+        "validator_metrics_finalized_epoch": 315,
+        "validator_metrics_justified_epoch": 315,
+        "validator_metrics_finality_distance_epochs": 315,
+        "validator_metrics_reorgs_total": 315,
+        "validator_metrics_head_slot": 315,
+        "validator_metrics_sync_distance": 315,
+        "validator_metrics_block_propagation_delay_ms": 315,
+        "validator_metrics_attestation_inclusion_distance": 315,
+        "validator_metrics_missed_attestations_total": 315,
+        "validator_metrics_missed_attestations_last_epoch": 315,
+        "validator_metrics_missed_proposals_total": 315,
+        "validator_metrics_attestation_effectiveness": 315,
+        "validator_metrics_proposal_effectiveness": 315,
+        "validator_system_network_rx_bytes_per_sec": 15,
+        "validator_system_network_tx_bytes_per_sec": 15,
+        "geth_metrics_peer_count_previous": 15,
+        "geth_metrics_peer_count_delta": 15,
+        "geth_metrics_peer_count_pct_change": 128,
+        "geth_metrics_rpc_latency_ms_previous": 15,
+        "geth_metrics_rpc_latency_ms_delta": 15,
+        "geth_metrics_rpc_latency_ms_pct_change": 15,
+        "geth_system_cpu_usage_percent_previous": 15,
+        "geth_system_cpu_usage_percent_delta": 15,
+        "geth_system_cpu_usage_percent_pct_change": 15,
+        "beacon_metrics_peer_count_previous": 15,
+        "beacon_metrics_peer_count_delta": 15,
+        "beacon_metrics_peer_count_pct_change": 15,
+        "validator_metrics_missed_attestations_total_previous": 315,
+        "validator_metrics_missed_attestations_total_delta": 315,
+        "validator_metrics_missed_attestations_total_pct_change": 315,
+        "beacon_rpc_failure_ratio": 315,
+        "validator_rpc_failure_ratio": 315,
+        "geth_peer_disconnection_ratio": 128,
+        "beacon_peer_disconnection_ratio": 15,
+        "validator_peer_disconnection_ratio": 315,
+        "geth_peer_churn_ratio": 128,
+        "beacon_peer_churn_ratio": 15,
+        "validator_peer_churn_ratio": 315,
+        "geth_peer_ip_diversity": 315,
+        "validator_peer_ip_diversity": 315,
+        "geth_network_traffic_bytes_per_sec": 15,
+        "geth_network_traffic_asymmetry": 15,
+        "beacon_network_traffic_bytes_per_sec": 15,
+        "beacon_network_traffic_asymmetry": 15,
+        "validator_network_traffic_bytes_per_sec": 15,
+        "validator_network_traffic_asymmetry": 15,
+        "validator_missed_attestation_ratio": 315,
+        "validator_missed_proposal_ratio": 315,
+        "validator_attestation_effectiveness": 315,
+        "validator_proposal_effectiveness": 315,
+        "geth_network_total_bytes_per_sec": 15,
+        "geth_network_asymmetry": 15,
+        "beacon_network_total_bytes_per_sec": 15,
+        "beacon_network_asymmetry": 15,
+        "validator_network_total_bytes_per_sec": 15,
+        "validator_network_asymmetry": 15
+    },
+    "infinite_columns": {},
+    "constant_features": [
+        "geth_metrics_txpool_pending",
+        "geth_metrics_txpool_queued",
+        "geth_metrics_rpc_failed_requests_total",
+        "geth_metrics_block_execution_ms",
+        "geth_metrics_block_tx_count",
+        "geth_metrics_connecting_peers",
+        "geth_metrics_inbound_peers",
+        "geth_metrics_outbound_peers",
+        "geth_metrics_unique_peer_ips",
+        "geth_metrics_unique_peer_clients",
+        "geth_metrics_top_client_ratio",
+        "geth_metrics_finalized_epoch",
+        "geth_metrics_justified_epoch",
+        "geth_metrics_finality_distance_epochs",
+        "geth_metrics_reorgs_total",
+        "geth_metrics_head_slot",
+        "geth_metrics_sync_distance",
+        "geth_metrics_block_propagation_delay_ms",
+        "geth_metrics_attestation_inclusion_distance",
+        "geth_metrics_attestations_total",
+        "geth_metrics_attestation_failures_total",
+        "geth_metrics_missed_attestations_total",
+        "geth_metrics_missed_attestations_last_epoch",
+        "geth_metrics_blocks_proposed_total",
+        "geth_metrics_block_proposal_failures_total",
+        "geth_metrics_missed_proposals_total",
+        "geth_metrics_validators_total",
+        "geth_metrics_validators_enabled",
+        "geth_metrics_attester_duties",
+        "geth_metrics_proposer_duties",
+        "geth_metrics_attestation_effectiveness",
+        "geth_metrics_proposal_effectiveness",
+        "geth_system_memory_total_mb",
+        "beacon_metrics_peer_count",
+        "beacon_metrics_admin_peer_count",
+        "beacon_metrics_txpool_pending",
+        "beacon_metrics_txpool_queued",
+        "beacon_metrics_rpc_latency_ms",
+        "beacon_metrics_rpc_requests_total",
+        "beacon_metrics_rpc_failed_requests_total",
+        "beacon_metrics_rpc_requests_per_sec",
+        "beacon_metrics_block_number",
+        "beacon_metrics_latest_block_age_secs",
+        "beacon_metrics_block_execution_ms",
+        "beacon_metrics_block_tx_count",
+        "beacon_metrics_connecting_peers",
+        "beacon_metrics_inbound_peers",
+        "beacon_metrics_outbound_peers",
+        "beacon_metrics_unique_peer_ips",
+        "beacon_metrics_unique_peer_clients",
+        "beacon_metrics_top_client_ratio",
+        "beacon_metrics_finality_distance_epochs",
+        "beacon_metrics_reorgs_total",
+        "beacon_metrics_sync_distance",
+        "beacon_metrics_attestations_total",
+        "beacon_metrics_attestation_failures_total",
+        "beacon_metrics_missed_attestations_total",
+        "beacon_metrics_missed_attestations_last_epoch",
+        "beacon_metrics_blocks_proposed_total",
+        "beacon_metrics_block_proposal_failures_total",
+        "beacon_metrics_missed_proposals_total",
+        "beacon_metrics_validators_total",
+        "beacon_metrics_validators_enabled",
+        "beacon_metrics_attester_duties",
+        "beacon_metrics_proposer_duties",
+        "beacon_metrics_attestation_effectiveness",
+        "beacon_metrics_proposal_effectiveness",
+        "beacon_system_memory_total_mb",
+        "validator_metrics_peer_count",
+        "validator_metrics_admin_peer_count",
+        "validator_metrics_new_peers",
+        "validator_metrics_disconnected_peers",
+        "validator_metrics_peer_churn_count",
+        "validator_metrics_txpool_pending",
+        "validator_metrics_txpool_queued",
+        "validator_metrics_rpc_latency_ms",
+        "validator_metrics_rpc_requests_total",
+        "validator_metrics_rpc_failed_requests_total",
+        "validator_metrics_rpc_requests_per_sec",
+        "validator_metrics_block_number",
+        "validator_metrics_latest_block_age_secs",
+        "validator_metrics_block_execution_ms",
+        "validator_metrics_block_tx_count",
+        "validator_metrics_connecting_peers",
+        "validator_metrics_inbound_peers",
+        "validator_metrics_outbound_peers",
+        "validator_metrics_unique_peer_ips",
+        "validator_metrics_unique_peer_clients",
+        "validator_metrics_top_client_ratio",
+        "validator_metrics_finalized_epoch",
+        "validator_metrics_justified_epoch",
+        "validator_metrics_finality_distance_epochs",
+        "validator_metrics_reorgs_total",
+        "validator_metrics_head_slot",
+        "validator_metrics_sync_distance",
+        "validator_metrics_block_propagation_delay_ms",
+        "validator_metrics_attestation_inclusion_distance",
+        "validator_metrics_attestation_failures_total",
+        "validator_metrics_missed_attestations_total",
+        "validator_metrics_missed_attestations_last_epoch",
+        "validator_metrics_block_proposal_failures_total",
+        "validator_metrics_missed_proposals_total",
+        "validator_metrics_validators_total",
+        "validator_metrics_validators_enabled",
+        "validator_metrics_attester_duties",
+        "validator_metrics_attestation_effectiveness",
+        "validator_metrics_proposal_effectiveness",
+        "validator_system_memory_total_mb",
+        "validator_metrics_missed_attestations_total_previous",
+        "validator_metrics_missed_attestations_total_delta",
+        "validator_metrics_missed_attestations_total_pct_change",
+        "geth_rpc_failure_ratio",
+        "beacon_rpc_failure_ratio",
+        "validator_rpc_failure_ratio",
+        "validator_peer_disconnection_ratio",
+        "validator_peer_churn_ratio",
+        "geth_peer_ip_diversity",
+        "beacon_peer_ip_diversity",
+        "validator_peer_ip_diversity",
+        "validator_attestation_failure_ratio",
+        "validator_missed_attestation_ratio",
+        "validator_proposal_failure_ratio",
+        "validator_missed_proposal_ratio",
+        "validator_participation_ratio",
+        "validator_attestation_effectiveness",
+        "validator_proposal_effectiveness"
+    ],
+    "duplicate_features": [
+        "geth_metrics_txpool_queued",
+        "geth_metrics_rpc_failed_requests_total",
+        "geth_metrics_block_tx_count",
+        "geth_metrics_connecting_peers",
+        "geth_metrics_inbound_peers",
+        "geth_metrics_outbound_peers",
+        "geth_metrics_unique_peer_ips",
+        "geth_metrics_unique_peer_clients",
+        "geth_metrics_top_client_ratio",
+        "geth_metrics_finalized_epoch",
+        "geth_metrics_justified_epoch",
+        "geth_metrics_finality_distance_epochs",
+        "geth_metrics_reorgs_total",
+        "geth_metrics_head_slot",
+        "geth_metrics_sync_distance",
+        "geth_metrics_block_propagation_delay_ms",
+        "geth_metrics_attestation_inclusion_distance",
+        "geth_metrics_attestations_total",
+        "geth_metrics_attestation_failures_total",
+        "geth_metrics_missed_attestations_total",
+        "geth_metrics_missed_attestations_last_epoch",
+        "geth_metrics_blocks_proposed_total",
+        "geth_metrics_block_proposal_failures_total",
+        "geth_metrics_missed_proposals_total",
+        "geth_metrics_validators_total",
+        "geth_metrics_validators_enabled",
+        "geth_metrics_attester_duties",
+        "geth_metrics_proposer_duties",
+        "geth_metrics_attestation_effectiveness",
+        "geth_metrics_proposal_effectiveness",
+        "beacon_metrics_admin_peer_count",
+        "beacon_metrics_disconnected_peers",
+        "beacon_metrics_peer_churn_count",
+        "beacon_metrics_txpool_pending",
+        "beacon_metrics_txpool_queued",
+        "beacon_metrics_rpc_latency_ms",
+        "beacon_metrics_rpc_requests_total",
+        "beacon_metrics_rpc_failed_requests_total",
+        "beacon_metrics_rpc_requests_per_sec",
+        "beacon_metrics_block_number",
+        "beacon_metrics_latest_block_age_secs",
+        "beacon_metrics_block_execution_ms",
+        "beacon_metrics_block_tx_count",
+        "beacon_metrics_connecting_peers",
+        "beacon_metrics_inbound_peers",
+        "beacon_metrics_outbound_peers",
+        "beacon_metrics_unique_peer_ips",
+        "beacon_metrics_unique_peer_clients",
+        "beacon_metrics_top_client_ratio",
+        "beacon_metrics_reorgs_total",
+        "beacon_metrics_sync_distance",
+        "beacon_metrics_attestations_total",
+        "beacon_metrics_attestation_failures_total",
+        "beacon_metrics_missed_attestations_total",
+        "beacon_metrics_missed_attestations_last_epoch",
+        "beacon_metrics_blocks_proposed_total",
+        "beacon_metrics_block_proposal_failures_total",
+        "beacon_metrics_missed_proposals_total",
+        "beacon_metrics_validators_total",
+        "beacon_metrics_validators_enabled",
+        "beacon_metrics_attester_duties",
+        "beacon_metrics_proposer_duties",
+        "beacon_metrics_attestation_effectiveness",
+        "beacon_metrics_proposal_effectiveness",
+        "beacon_system_memory_total_mb",
+        "validator_metrics_peer_count",
+        "validator_metrics_admin_peer_count",
+        "validator_metrics_new_peers",
+        "validator_metrics_disconnected_peers",
+        "validator_metrics_peer_churn_count",
+        "validator_metrics_txpool_pending",
+        "validator_metrics_txpool_queued",
+        "validator_metrics_rpc_latency_ms",
+        "validator_metrics_rpc_requests_total",
+        "validator_metrics_rpc_failed_requests_total",
+        "validator_metrics_rpc_requests_per_sec",
+        "validator_metrics_block_number",
+        "validator_metrics_latest_block_age_secs",
+        "validator_metrics_block_execution_ms",
+        "validator_metrics_block_tx_count",
+        "validator_metrics_connecting_peers",
+        "validator_metrics_inbound_peers",
+        "validator_metrics_outbound_peers",
+        "validator_metrics_unique_peer_ips",
+        "validator_metrics_unique_peer_clients",
+        "validator_metrics_top_client_ratio",
+        "validator_metrics_finalized_epoch",
+        "validator_metrics_justified_epoch",
+        "validator_metrics_finality_distance_epochs",
+        "validator_metrics_reorgs_total",
+        "validator_metrics_head_slot",
+        "validator_metrics_sync_distance",
+        "validator_metrics_block_propagation_delay_ms",
+        "validator_metrics_attestation_inclusion_distance",
+        "validator_metrics_attestation_failures_total",
+        "validator_metrics_missed_attestations_total",
+        "validator_metrics_missed_attestations_last_epoch",
+        "validator_metrics_block_proposal_failures_total",
+        "validator_metrics_missed_proposals_total",
+        "validator_metrics_validators_total",
+        "validator_metrics_validators_enabled",
+        "validator_metrics_attester_duties",
+        "validator_metrics_attestation_effectiveness",
+        "validator_metrics_proposal_effectiveness",
+        "validator_system_memory_total_mb",
+        "beacon_metrics_peer_count_delta",
+        "beacon_metrics_peer_count_pct_change",
+        "validator_metrics_missed_attestations_total_previous",
+        "validator_metrics_missed_attestations_total_delta",
+        "validator_metrics_missed_attestations_total_pct_change",
+        "geth_rpc_failure_ratio",
+        "beacon_rpc_failure_ratio",
+        "validator_rpc_failure_ratio",
+        "beacon_peer_disconnection_ratio",
+        "validator_peer_disconnection_ratio",
+        "beacon_peer_churn_ratio",
+        "validator_peer_churn_ratio",
+        "geth_peer_ip_diversity",
+        "beacon_peer_ip_diversity",
+        "validator_peer_ip_diversity",
+        "validator_attestation_failure_ratio",
+        "validator_missed_attestation_ratio",
+        "validator_proposal_failure_ratio",
+        "validator_missed_proposal_ratio",
+        "validator_participation_ratio",
+        "validator_attestation_effectiveness",
+        "validator_proposal_effectiveness",
+        "geth_cpu_utilization",
+        "geth_network_total_bytes_per_sec",
+        "geth_network_asymmetry",
+        "geth_tcp_connections",
+        "beacon_cpu_utilization",
+        "beacon_network_total_bytes_per_sec",
+        "beacon_network_asymmetry",
+        "beacon_tcp_connections",
+        "validator_cpu_utilization",
+        "validator_network_total_bytes_per_sec",
+        "validator_network_asymmetry",
+        "validator_tcp_connections"
+    ],
+    "highly_correlated_pairs": [
+        {
+            "feature_1": "geth_metrics_peer_count",
+            "feature_2": "geth_metrics_admin_peer_count",
+            "correlation": 0.9890828073952357
+        },
+        {
+            "feature_1": "geth_metrics_rpc_requests_per_sec",
+            "feature_2": "geth_system_cpu_usage_percent",
+            "correlation": 0.9979502760250561
+        },
+        {
+            "feature_1": "geth_metrics_rpc_requests_total",
+            "feature_2": "geth_system_network_rx_bytes_total",
+            "correlation": 0.9998492107086929
+        },
+        {
+            "feature_1": "geth_metrics_rpc_requests_total",
+            "feature_2": "geth_system_network_tx_bytes_total",
+            "correlation": 0.9998956328828174
+        },
+        {
+            "feature_1": "geth_system_network_rx_bytes_total",
+            "feature_2": "geth_system_network_tx_bytes_total",
+            "correlation": 0.9999679380798059
+        },
+        {
+            "feature_1": "geth_metrics_rpc_requests_per_sec",
+            "feature_2": "geth_system_network_rx_bytes_per_sec",
+            "correlation": 0.9995564708330542
+        },
+        {
+            "feature_1": "geth_system_cpu_usage_percent",
+            "feature_2": "geth_system_network_rx_bytes_per_sec",
+            "correlation": 0.999121252648673
+        },
+        {
+            "feature_1": "geth_metrics_rpc_requests_per_sec",
+            "feature_2": "geth_system_network_tx_bytes_per_sec",
+            "correlation": 0.9995599420145496
+        },
+        {
+            "feature_1": "geth_system_cpu_usage_percent",
+            "feature_2": "geth_system_network_tx_bytes_per_sec",
+            "correlation": 0.9991154688203447
+        },
+        {
+            "feature_1": "geth_system_network_rx_bytes_per_sec",
+            "feature_2": "geth_system_network_tx_bytes_per_sec",
+            "correlation": 0.9999994416705145
+        },
+        {
+            "feature_1": "geth_metrics_rpc_requests_per_sec",
+            "feature_2": "geth_system_tcp_established_connections",
+            "correlation": 0.986700646618467
+        },
+        {
+            "feature_1": "geth_system_cpu_usage_percent",
+            "feature_2": "geth_system_tcp_established_connections",
+            "correlation": 0.9875169705351798
+        },
+        {
+            "feature_1": "geth_system_network_rx_bytes_per_sec",
+            "feature_2": "geth_system_tcp_established_connections",
+            "correlation": 0.9870740672500681
+        },
+        {
+            "feature_1": "geth_system_network_tx_bytes_per_sec",
+            "feature_2": "geth_system_tcp_established_connections",
+            "correlation": 0.9870721915969966
+        },
+        {
+            "feature_1": "beacon_metrics_finalized_epoch",
+            "feature_2": "beacon_metrics_justified_epoch",
+            "correlation": 1.0
+        },
+        {
+            "feature_1": "geth_metrics_block_number",
+            "feature_2": "beacon_metrics_head_slot",
+            "correlation": 0.9999827380323622
+        },
+        {
+            "feature_1": "geth_metrics_block_number",
+            "feature_2": "validator_system_network_rx_bytes_total",
+            "correlation": 0.9975964538839495
+        },
+        {
+            "feature_1": "beacon_metrics_head_slot",
+            "feature_2": "validator_system_network_rx_bytes_total",
+            "correlation": 0.9976140157199799
+        },
+        {
+            "feature_1": "geth_metrics_peer_count",
+            "feature_2": "geth_metrics_peer_count_previous",
+            "correlation": 0.9567313561675481
+        },
+        {
+            "feature_1": "geth_metrics_admin_peer_count",
+            "feature_2": "geth_metrics_peer_count_previous",
+            "correlation": 0.9604091681865644
+        },
+        {
+            "feature_1": "geth_metrics_rpc_requests_per_sec",
+            "feature_2": "geth_system_cpu_usage_percent_previous",
+            "correlation": 0.9996273281420311
+        },
+        {
+            "feature_1": "geth_system_cpu_usage_percent",
+            "feature_2": "geth_system_cpu_usage_percent_previous",
+            "correlation": 0.9981195188732058
+        },
+        {
+            "feature_1": "geth_system_network_rx_bytes_per_sec",
+            "feature_2": "geth_system_cpu_usage_percent_previous",
+            "correlation": 0.9992767356544335
+        },
+        {
+            "feature_1": "geth_system_network_tx_bytes_per_sec",
+            "feature_2": "geth_system_cpu_usage_percent_previous",
+            "correlation": 0.9992804475818176
+        },
+        {
+            "feature_1": "geth_system_tcp_established_connections",
+            "feature_2": "geth_system_cpu_usage_percent_previous",
+            "correlation": 0.9876025063660607
+        },
+        {
+            "feature_1": "geth_metrics_peer_count_pct_change",
+            "feature_2": "geth_peer_churn_ratio",
+            "correlation": 1.0
+        },
+        {
+            "feature_1": "geth_metrics_rpc_requests_per_sec",
+            "feature_2": "geth_network_traffic_bytes_per_sec",
+            "correlation": 0.9995595231069765
+        },
+        {
+            "feature_1": "geth_system_cpu_usage_percent",
+            "feature_2": "geth_network_traffic_bytes_per_sec",
+            "correlation": 0.9991163459926906
+        },
+        {
+            "feature_1": "geth_system_network_rx_bytes_per_sec",
+            "feature_2": "geth_network_traffic_bytes_per_sec",
+            "correlation": 0.9999995871018573
+        },
+        {
+            "feature_1": "geth_system_network_tx_bytes_per_sec",
+            "feature_2": "geth_network_traffic_bytes_per_sec",
+            "correlation": 0.9999999890498454
+        },
+        {
+            "feature_1": "geth_system_tcp_established_connections",
+            "feature_2": "geth_network_traffic_bytes_per_sec",
+            "correlation": 0.9870725206425385
+        },
+        {
+            "feature_1": "geth_system_cpu_usage_percent_previous",
+            "feature_2": "geth_network_traffic_bytes_per_sec",
+            "correlation": 0.9992799949404032
+        },
+        {
+            "feature_1": "beacon_system_network_rx_bytes_per_sec",
+            "feature_2": "beacon_network_traffic_bytes_per_sec",
+            "correlation": 0.9533338352131929
+        },
+        {
+            "feature_1": "beacon_system_network_tx_bytes_per_sec",
+            "feature_2": "beacon_network_traffic_bytes_per_sec",
+            "correlation": 0.990783098200105
+        },
+        {
+            "feature_1": "validator_system_network_rx_bytes_per_sec",
+            "feature_2": "validator_network_traffic_asymmetry",
+            "correlation": 0.9867293223708384
+        },
+        {
+            "feature_1": "geth_metrics_rpc_requests_per_sec",
+            "feature_2": "geth_cpu_utilization",
+            "correlation": 0.9979502760250561
+        },
+        {
+            "feature_1": "geth_system_cpu_usage_percent",
+            "feature_2": "geth_cpu_utilization",
+            "correlation": 1.0
+        },
+        {
+            "feature_1": "geth_system_network_rx_bytes_per_sec",
+            "feature_2": "geth_cpu_utilization",
+            "correlation": 0.9991212526486729
+        },
+        {
+            "feature_1": "geth_system_network_tx_bytes_per_sec",
+            "feature_2": "geth_cpu_utilization",
+            "correlation": 0.9991154688203447
+        },
+        {
+            "feature_1": "geth_system_tcp_established_connections",
+            "feature_2": "geth_cpu_utilization",
+            "correlation": 0.9875169705351798
+        },
+        {
+            "feature_1": "geth_system_cpu_usage_percent_previous",
+            "feature_2": "geth_cpu_utilization",
+            "correlation": 0.9981195188732056
+        },
+        {
+            "feature_1": "geth_network_traffic_bytes_per_sec",
+            "feature_2": "geth_cpu_utilization",
+            "correlation": 0.9991163459926906
+        },
+        {
+            "feature_1": "geth_system_memory_used_mb",
+            "feature_2": "geth_memory_utilization",
+            "correlation": 0.9999999999999998
+        },
+        {
+            "feature_1": "geth_system_memory_used_mb",
+            "feature_2": "geth_memory_available_mb",
+            "correlation": 1.0
+        },
+        {
+            "feature_1": "geth_memory_utilization",
+            "feature_2": "geth_memory_available_mb",
+            "correlation": 1.0
+        },
+        {
+            "feature_1": "geth_metrics_rpc_requests_per_sec",
+            "feature_2": "geth_network_total_bytes_per_sec",
+            "correlation": 0.9995595231069765
+        },
+        {
+            "feature_1": "geth_system_cpu_usage_percent",
+            "feature_2": "geth_network_total_bytes_per_sec",
+            "correlation": 0.9991163459926906
+        },
+        {
+            "feature_1": "geth_system_network_rx_bytes_per_sec",
+            "feature_2": "geth_network_total_bytes_per_sec",
+            "correlation": 0.9999995871018573
+        },
+        {
+            "feature_1": "geth_system_network_tx_bytes_per_sec",
+            "feature_2": "geth_network_total_bytes_per_sec",
+            "correlation": 0.9999999890498454
+        },
+        {
+            "feature_1": "geth_system_tcp_established_connections",
+            "feature_2": "geth_network_total_bytes_per_sec",
+            "correlation": 0.9870725206425385
+        },
+        {
+            "feature_1": "geth_system_cpu_usage_percent_previous",
+            "feature_2": "geth_network_total_bytes_per_sec",
+            "correlation": 0.9992799949404032
+        },
+        {
+            "feature_1": "geth_network_traffic_bytes_per_sec",
+            "feature_2": "geth_network_total_bytes_per_sec",
+            "correlation": 1.0
+        },
+        {
+            "feature_1": "geth_cpu_utilization",
+            "feature_2": "geth_network_total_bytes_per_sec",
+            "correlation": 0.9991163459926906
+        },
+        {
+            "feature_1": "geth_network_traffic_asymmetry",
+            "feature_2": "geth_network_asymmetry",
+            "correlation": 1.0
+        },
+        {
+            "feature_1": "geth_metrics_rpc_requests_per_sec",
+            "feature_2": "geth_tcp_connections",
+            "correlation": 0.986700646618467
+        },
+        {
+            "feature_1": "geth_system_cpu_usage_percent",
+            "feature_2": "geth_tcp_connections",
+            "correlation": 0.9875169705351798
+        },
+        {
+            "feature_1": "geth_system_network_rx_bytes_per_sec",
+            "feature_2": "geth_tcp_connections",
+            "correlation": 0.9870740672500681
+        },
+        {
+            "feature_1": "geth_system_network_tx_bytes_per_sec",
+            "feature_2": "geth_tcp_connections",
+            "correlation": 0.9870721915969966
+        },
+        {
+            "feature_1": "geth_system_tcp_established_connections",
+            "feature_2": "geth_tcp_connections",
+            "correlation": 1.0
+        },
+        {
+            "feature_1": "geth_system_cpu_usage_percent_previous",
+            "feature_2": "geth_tcp_connections",
+            "correlation": 0.9876025063660607
+        },
+        {
+            "feature_1": "geth_network_traffic_bytes_per_sec",
+            "feature_2": "geth_tcp_connections",
+            "correlation": 0.9870725206425385
+        },
+        {
+            "feature_1": "geth_cpu_utilization",
+            "feature_2": "geth_tcp_connections",
+            "correlation": 0.9875169705351798
+        },
+        {
+            "feature_1": "geth_network_total_bytes_per_sec",
+            "feature_2": "geth_tcp_connections",
+            "correlation": 0.9870725206425385
+        },
+        {
+            "feature_1": "beacon_system_cpu_usage_percent",
+            "feature_2": "beacon_cpu_utilization",
+            "correlation": 1.0
+        },
+        {
+            "feature_1": "beacon_system_memory_used_mb",
+            "feature_2": "beacon_memory_utilization",
+            "correlation": 0.9999999999999997
+        },
+        {
+            "feature_1": "beacon_system_memory_used_mb",
+            "feature_2": "beacon_memory_available_mb",
+            "correlation": 0.9999999999999991
+        },
+        {
+            "feature_1": "beacon_memory_utilization",
+            "feature_2": "beacon_memory_available_mb",
+            "correlation": 0.9999999999999987
+        },
+        {
+            "feature_1": "beacon_system_network_rx_bytes_per_sec",
+            "feature_2": "beacon_network_total_bytes_per_sec",
+            "correlation": 0.9533338352131929
+        },
+        {
+            "feature_1": "beacon_system_network_tx_bytes_per_sec",
+            "feature_2": "beacon_network_total_bytes_per_sec",
+            "correlation": 0.990783098200105
+        },
+        {
+            "feature_1": "beacon_network_traffic_bytes_per_sec",
+            "feature_2": "beacon_network_total_bytes_per_sec",
+            "correlation": 1.0
+        },
+        {
+            "feature_1": "beacon_network_traffic_asymmetry",
+            "feature_2": "beacon_network_asymmetry",
+            "correlation": 1.0
+        },
+        {
+            "feature_1": "beacon_system_tcp_established_connections",
+            "feature_2": "beacon_tcp_connections",
+            "correlation": 1.0
+        },
+        {
+            "feature_1": "validator_system_cpu_usage_percent",
+            "feature_2": "validator_cpu_utilization",
+            "correlation": 1.0
+        },
+        {
+            "feature_1": "validator_system_memory_used_mb",
+            "feature_2": "validator_memory_utilization",
+            "correlation": 0.9999999999999996
+        },
+        {
+            "feature_1": "validator_system_memory_used_mb",
+            "feature_2": "validator_memory_available_mb",
+            "correlation": 1.0
+        },
+        {
+            "feature_1": "validator_memory_utilization",
+            "feature_2": "validator_memory_available_mb",
+            "correlation": 1.0
+        },
+        {
+            "feature_1": "validator_network_traffic_bytes_per_sec",
+            "feature_2": "validator_network_total_bytes_per_sec",
+            "correlation": 1.0
+        },
+        {
+            "feature_1": "validator_system_network_rx_bytes_per_sec",
+            "feature_2": "validator_network_asymmetry",
+            "correlation": 0.9867293223708384
+        },
+        {
+            "feature_1": "validator_network_traffic_asymmetry",
+            "feature_2": "validator_network_asymmetry",
+            "correlation": 1.0
+        },
+        {
+            "feature_1": "validator_system_tcp_established_connections",
+            "feature_2": "validator_tcp_connections",
+            "correlation": 1.0
+        }
+    ],
+    "forbidden_features_found": [],
+    "feature_count": 208
+}

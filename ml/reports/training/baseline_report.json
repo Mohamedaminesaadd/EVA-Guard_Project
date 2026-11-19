@@ -1,0 +1,41 @@
+{
+    "model": "DummyClassifier",
+    "strategy": "most_frequent",
+    "accuracy": 0.3333333333333333,
+    "precision_macro": 0.1111111111111111,
+    "recall_macro": 0.3333333333333333,
+    "f1_macro": 0.16666666666666666,
+    "classification_report": {
+        "NORMAL": {
+            "precision": 0.3333333333333333,
+            "recall": 1.0,
+            "f1-score": 0.5,
+            "support": 35.0
+        },
+        "RPC_FLOODING": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1-score": 0.0,
+            "support": 35.0
+        },
+        "ECLIPSE": {
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1-score": 0.0,
+            "support": 35.0
+        },
+        "accuracy": 0.3333333333333333,
+        "macro avg": {
+            "precision": 0.1111111111111111,
+            "recall": 0.3333333333333333,
+            "f1-score": 0.16666666666666666,
+            "support": 105.0
+        },
+        "weighted avg": {
+            "precision": 0.1111111111111111,
+            "recall": 0.3333333333333333,
+            "f1-score": 0.16666666666666666,
+            "support": 105.0
+        }
+    }
+}
