@@ -1,12 +1,14 @@
 use std::env;
 use std::error::Error;
 use std::path::PathBuf;
+use std::time::Duration;
 
 use tracing_subscriber::EnvFilter;
 
 use monitoring_rust::config::NodesConfig;
 use monitoring_rust::models::observation::Scenario;
-use monitoring_rust::monitoring::campaign::Campaign;
+use monitoring_rust::monitoring::campaign::{Campaign, ENV_FLOOD_CONCURRENCY, ENV_TARGET};
+use monitoring_rust::monitoring::live_attack;
 use monitoring_rust::monitoring::node_manager::NodeManager;
 use monitoring_rust::monitoring::preflight::{all_ok, check_nodes, render_report};
 use monitoring_rust::monitoring::scheduler::Scheduler;
@@ -15,7 +17,9 @@ use monitoring_rust::storage::JsonlStorage;
 const ENV_MODE: &str = "EVA_MODE";
 const ENV_SCENARIO: &str = "EVA_SCENARIO";
 const ENV_DATA_DIR: &str = "EVA_DATA_DIR";
+const ENV_WARMUP_SECS: &str = "EVA_WARMUP_SECS";
 const DEFAULT_DATA_DIR: &str = "data";
+const DEFAULT_WARMUP_SECS: u64 = 180;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -78,6 +82,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
             return Err("--campaign is only available in EVA_MODE=training".into());
         }
         return run_campaign(&config, data_dir, cli.sessions).await;
+    }
+
+    if cli.live_attack {
+        if mode != MonitoringMode::Live {
+            return Err("--live-attack is only available in EVA_MODE=live".into());
+        }
+        return run_live_attack(&config, data_dir).await;
     }
 
     // 3. Open the dataset storage
@@ -216,12 +227,99 @@ async fn run_campaign(
     Ok(())
 }
 
-/// Parsed command line. `--check`, `--campaign` and `--sessions N` are the only
-/// options; anything else is refused rather than ignored.
+/// Runs the live-attack simulation: `EVA_MODE=live` stays normal for the
+/// warm-up, then injects a controlled attack on the victim node, all while
+/// writing **unlabelled** data so the ML model and agents do real detection.
+///
+/// Configured through the environment:
+/// - `EVA_SCENARIO`   — the attack to inject (`ECLIPSE` default, or `RPC_FLOODING`);
+/// - `EVA_ATTACK_TARGET` — the victim node id (default: the first node);
+/// - `EVA_WARMUP_SECS` — normal seconds before the attack (default 180 = 3 min);
+/// - `EVA_FLOOD_CONCURRENCY` — RPC flood workers (default: crate default).
+async fn run_live_attack(config: &NodesConfig, data_dir: PathBuf) -> Result<(), Box<dyn Error>> {
+    let attack_scenario = attack_scenario_from(env::var(ENV_SCENARIO).ok().as_deref())?;
+    let target = match env::var(ENV_TARGET) {
+        Ok(value) => value,
+        Err(_) => config
+            .nodes
+            .first()
+            .map(|node| node.id.clone())
+            .ok_or("the configuration has no node to attack")?,
+    };
+    let warmup = warmup_from(env::var(ENV_WARMUP_SECS).ok().as_deref())?;
+    let flood_concurrency = match env::var(ENV_FLOOD_CONCURRENCY) {
+        Ok(value) => Some(
+            value
+                .parse::<usize>()
+                .map_err(|_| format!("invalid {ENV_FLOOD_CONCURRENCY} `{value}`"))?,
+        ),
+        Err(_) => None,
+    };
+
+    println!("\n[3] Live attack simulation (unlabelled live data)");
+    println!("Victim:    {target}");
+    println!(
+        "Warm-up:   {warmup:?} normal, then inject {}",
+        attack_scenario.as_str()
+    );
+
+    println!("\n========================================");
+    println!("       LIVE ATTACK SIMULATION");
+    println!("========================================");
+    println!("Phase 1 — normal monitoring for {warmup:?}");
+    println!(
+        "Phase 2 — {} injected on {target}, until Ctrl+C",
+        attack_scenario.as_str()
+    );
+    println!("Data is written WITHOUT a scenario label: the model and agents decide.");
+    println!("Press Ctrl+C to stop.\n");
+
+    let report = live_attack::run(
+        config,
+        data_dir,
+        attack_scenario,
+        target,
+        warmup,
+        flood_concurrency,
+        shutdown_signal(),
+    )
+    .await?;
+
+    println!("\n========================================");
+    println!("       SIMULATION STOPPED");
+    println!("========================================");
+    println!("Dataset:               {}", report.dataset_path.display());
+    println!("Cycles completed:      {}", report.run.cycles_completed);
+    println!("Cycles skipped (late): {}", report.run.cycles_skipped);
+    println!("Nodes not collected:   {}", report.run.nodes_unmeasured);
+    println!("Observations written:  {}", report.run.observations_written);
+    println!("Write failures:        {}", report.run.write_failures);
+    if report.attacked {
+        println!(
+            "Attack:                {} — actions={} errors={}",
+            report.attack_name.as_deref().unwrap_or("?"),
+            report.attack_actions,
+            report.attack_errors
+        );
+    } else {
+        println!("Attack:                not started (stopped during warm-up)");
+    }
+
+    if !report.run.flushed {
+        return Err("the final flush of the dataset failed".into());
+    }
+
+    Ok(())
+}
+
+/// Parsed command line. `--check`, `--campaign`, `--live-attack` and
+/// `--sessions N` are the only options; anything else is refused rather than
+/// ignored.
 #[derive(Debug, PartialEq, Eq)]
 struct Cli {
     check_only: bool,
     campaign: bool,
+    live_attack: bool,
     sessions: usize,
 }
 
@@ -230,6 +328,7 @@ impl Default for Cli {
         Cli {
             check_only: false,
             campaign: false,
+            live_attack: false,
             sessions: 1,
         }
     }
@@ -245,6 +344,7 @@ impl Cli {
             match arg.as_str() {
                 "--check" => cli.check_only = true,
                 "--campaign" => cli.campaign = true,
+                "--live-attack" => cli.live_attack = true,
                 "--sessions" => {
                     let value = args
                         .next()
@@ -259,7 +359,7 @@ impl Cli {
                 other => {
                     return Err(format!(
                         "unknown argument `{other}` \
-                         (only --check, --campaign and --sessions exist)"
+                         (only --check, --campaign, --live-attack and --sessions exist)"
                     )
                     .into())
                 }
@@ -268,6 +368,10 @@ impl Cli {
 
         if sessions_seen && !cli.campaign {
             return Err("--sessions only works with --campaign".into());
+        }
+
+        if cli.live_attack && cli.campaign {
+            return Err("--live-attack and --campaign cannot be combined".into());
         }
 
         Ok(cli)
@@ -306,6 +410,32 @@ fn scenario_from(value: Option<&str>) -> Result<Scenario, Box<dyn Error>> {
     match value {
         None => Ok(Scenario::Normal),
         Some(value) => Ok(value.parse()?),
+    }
+}
+
+/// `EVA_SCENARIO` in `--live-attack` mode: unset means `ECLIPSE`; `NORMAL` is
+/// refused because it is not an attack.
+fn attack_scenario_from(value: Option<&str>) -> Result<Scenario, Box<dyn Error>> {
+    let scenario = match value {
+        None => Scenario::Eclipse,
+        Some(value) => value.parse()?,
+    };
+    if scenario == Scenario::Normal {
+        return Err(
+            "--live-attack needs an attack scenario (ECLIPSE or RPC_FLOODING), not NORMAL".into(),
+        );
+    }
+    Ok(scenario)
+}
+
+/// `EVA_WARMUP_SECS`: unset means 180 (three minutes of normal behaviour).
+fn warmup_from(value: Option<&str>) -> Result<Duration, Box<dyn Error>> {
+    match value {
+        None => Ok(Duration::from_secs(DEFAULT_WARMUP_SECS)),
+        Some(value) => value
+            .parse::<u64>()
+            .map(Duration::from_secs)
+            .map_err(|_| format!("invalid EVA_WARMUP_SECS `{value}`; expected whole seconds").into()),
     }
 }
 
@@ -357,6 +487,7 @@ mod tests {
         let cli = Cli::from_args(args(&[])).unwrap();
         assert!(!cli.check_only);
         assert!(!cli.campaign);
+        assert!(!cli.live_attack);
     }
 
     #[test]
@@ -366,6 +497,7 @@ mod tests {
             Cli {
                 check_only: true,
                 campaign: false,
+                live_attack: false,
                 sessions: 1,
             }
         );
@@ -378,9 +510,29 @@ mod tests {
             Cli {
                 check_only: false,
                 campaign: true,
+                live_attack: false,
                 sessions: 1,
             }
         );
+    }
+
+    #[test]
+    fn live_attack_is_parsed() {
+        assert_eq!(
+            Cli::from_args(args(&["--live-attack"])).unwrap(),
+            Cli {
+                check_only: false,
+                campaign: false,
+                live_attack: true,
+                sessions: 1,
+            }
+        );
+    }
+
+    #[test]
+    fn live_attack_and_campaign_cannot_be_combined() {
+        assert!(Cli::from_args(args(&["--live-attack", "--campaign"])).is_err());
+        assert!(Cli::from_args(args(&["--campaign", "--live-attack"])).is_err());
     }
 
     #[test]
@@ -395,6 +547,7 @@ mod tests {
             Cli {
                 check_only: false,
                 campaign: true,
+                live_attack: false,
                 sessions: 3,
             }
         );
@@ -470,5 +623,31 @@ mod tests {
     fn an_unknown_or_empty_scenario_is_an_error_not_a_silent_normal() {
         assert!(scenario_from(Some("attack")).is_err());
         assert!(scenario_from(Some("")).is_err());
+    }
+
+    #[test]
+    fn live_attack_scenario_defaults_to_eclipse() {
+        assert_eq!(attack_scenario_from(None).unwrap(), Scenario::Eclipse);
+    }
+
+    #[test]
+    fn live_attack_scenario_parses_and_refuses_normal() {
+        assert_eq!(
+            attack_scenario_from(Some("rpc-flooding")).unwrap(),
+            Scenario::RpcFlooding
+        );
+        assert_eq!(
+            attack_scenario_from(Some("ECLIPSE")).unwrap(),
+            Scenario::Eclipse
+        );
+        assert!(attack_scenario_from(Some("normal")).is_err());
+        assert!(attack_scenario_from(Some("ddos")).is_err());
+    }
+
+    #[test]
+    fn warmup_defaults_to_three_minutes() {
+        assert_eq!(warmup_from(None).unwrap(), Duration::from_secs(180));
+        assert_eq!(warmup_from(Some("30")).unwrap(), Duration::from_secs(30));
+        assert!(warmup_from(Some("soon")).is_err());
     }
 }

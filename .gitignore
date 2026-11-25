@@ -64,3 +64,81 @@ Thumbs.db
 # =====================================
 *.tmp
 *.bak
+
+
+
+# ==========================================
+# MACHINE LEARNING / DEEP LEARNING
+# ==========================================
+
+# Datasets
+datasets/
+dataset/
+data/raw/
+data/processed/
+data/external/
+*.csv
+*.parquet
+*.feather
+*.h5
+*.hdf5
+
+# Model weights and checkpoints
+models/
+checkpoints/
+weights/
+*.pt
+*.pth
+*.ckpt
+*.onnx
+*.pb
+*.tflite
+*.safetensors
+*.gguf
+*.model
+
+# TensorFlow / Keras
+logs/
+saved_model/
+*.keras
+*.tfevents.*
+
+# PyTorch
+lightning_logs/
+wandb/
+mlruns/
+
+# Hugging Face
+.cache/huggingface/
+huggingface_cache/
+transformers_cache/
+
+# YOLO
+runs/
+runs/detect/
+runs/train/
+runs/segment/
+
+# Scikit-learn
+*.joblib
+*.pkl
+*.pickle
+
+# Jupyter / experiments
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+experiment_results/
+experiments/
+outputs/
+predictions/
+
+# ML tracking
+.wandb/
+wandb/
+mlflow/
+tensorboard/
+
+# GPU / CUDA temporary files
+*.ptx
+*.cubin
+*.fatbin

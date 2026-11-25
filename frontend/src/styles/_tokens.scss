@@ -1,0 +1,116 @@
+// =====================================================================
+// EVA-Guard design tokens
+// Exposed as CSS custom properties so components (and ECharts theme)
+// read a single source of truth.
+// =====================================================================
+
+$breakpoint-sm: 640px;
+$breakpoint-md: 900px;
+$breakpoint-lg: 1200px;
+$breakpoint-xl: 1440px;
+
+:root {
+  // Brand
+  --eg-primary: #635bff;
+  --eg-primary-hover: #5248e6;
+  --eg-primary-50: #f4f3ff;
+  --eg-primary-100: #e8e6ff;
+  --eg-primary-200: #cfcbff;
+
+  // Shell
+  --eg-sidebar: #101828;
+  --eg-sidebar-2: #0c1322;
+  --eg-sidebar-hover: #1d2939;
+  --eg-sidebar-border: #1f2a3c;
+  --eg-sidebar-text: #98a2b3;
+  --eg-sidebar-text-strong: #f2f4f7;
+  --eg-sidebar-section: #667085;
+
+  // Surfaces
+  --eg-bg: #f5f7fa;
+  --eg-surface: #ffffff;
+  --eg-surface-2: #f9fafb;
+  --eg-surface-3: #f2f4f7;
+  --eg-border: #eaecf0;
+  --eg-border-strong: #d0d5dd;
+
+  // Text
+  --eg-text: #1d2939;
+  --eg-text-2: #667085;
+  --eg-text-3: #98a2b3;
+  --eg-text-inverse: #ffffff;
+
+  // Status (reserved: never reused as series colors)
+  --eg-success: #12b76a;
+  --eg-success-bg: #ecfdf3;
+  --eg-success-text: #027a48;
+  --eg-warning: #f79009;
+  --eg-warning-bg: #fffaeb;
+  --eg-warning-text: #b54708;
+  --eg-high: #ef6820;
+  --eg-high-bg: #fef6ee;
+  --eg-high-text: #b93815;
+  --eg-critical: #f04438;
+  --eg-critical-bg: #fef3f2;
+  --eg-critical-text: #b42318;
+  --eg-info: #2e90fa;
+  --eg-info-bg: #eff8ff;
+  --eg-info-text: #175cd3;
+  --eg-offline: #98a2b3;
+  --eg-offline-bg: #f2f4f7;
+  --eg-offline-text: #475467;
+
+  // Categorical series (node identity) — validated for CVD, see core/utils/colors.ts
+  --eg-series-1: #2e6fdb;
+  --eg-series-2: #0b9a8d;
+  --eg-series-3: #7a5af8;
+  --eg-series-4: #946200;
+  --eg-series-5: #d9508f;
+
+  // Typography
+  --eg-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --eg-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --eg-fs-xs: 11px;
+  --eg-fs-sm: 12px;
+  --eg-fs-md: 13px;
+  --eg-fs-lg: 14px;
+  --eg-fs-xl: 16px;
+  --eg-fs-2xl: 20px;
+  --eg-fs-3xl: 24px;
+
+  // Geometry
+  --eg-radius-sm: 4px;
+  --eg-radius: 6px;
+  --eg-radius-lg: 8px;
+  --eg-shadow-xs: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --eg-shadow-sm: 0 1px 3px rgba(16, 24, 40, 0.08), 0 1px 2px rgba(16, 24, 40, 0.04);
+  --eg-shadow-lg: 0 12px 24px -6px rgba(16, 24, 40, 0.14), 0 4px 8px -4px rgba(16, 24, 40, 0.06);
+  --eg-focus-ring: 0 0 0 3px rgba(99, 91, 255, 0.28);
+
+  // Layout
+  --eg-sidebar-w: 240px;
+  --eg-sidebar-w-collapsed: 64px;
+  --eg-topbar-h: 56px;
+  --eg-gap: 16px;
+  --eg-page-pad: 24px;
+
+  --eg-transition: 140ms ease;
+}
+
+@media (max-width: $breakpoint-md) {
+  :root {
+    --eg-page-pad: 16px;
+    --eg-gap: 12px;
+  }
+}
+
+@mixin mono {
+  font-family: var(--eg-font-mono);
+  font-feature-settings: 'zero' 1;
+  letter-spacing: -0.01em;
+}
+
+@mixin focus-ring {
+  outline: none;
+  box-shadow: var(--eg-focus-ring);
+}

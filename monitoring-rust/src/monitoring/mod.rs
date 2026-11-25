@@ -4,3 +4,4 @@ pub mod preflight;
 pub mod campaign;
 pub mod scheduler;
 pub mod system_collection;
+pub mod live_attack;

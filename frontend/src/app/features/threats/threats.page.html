@@ -1,0 +1,136 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Threat Detection</h1>
+      <p class="page-header__sub">ML classifications from the Logistic Regression model — NORMAL, ECLIPSE and RPC_FLOODING.</p>
+    </div>
+    <div class="page-header__actions">
+      <app-live-indicator [res]="history()" />
+    </div>
+  </header>
+
+  <section class="grid-kpi">
+    <app-metric-card label="Threat detections" icon="radar" tone="critical" [value]="summary().total" [description]="summary().window" [loading]="!history().data && history().status !== 'error'" />
+    <app-metric-card label="Eclipse attacks" icon="eclipse" tone="critical" [value]="summary().eclipse" description="Severity: Critical" [loading]="!history().data && history().status !== 'error'" />
+    <app-metric-card label="RPC flooding" icon="zap" tone="high" [value]="summary().rpc" description="Severity: High" [loading]="!history().data && history().status !== 'error'" />
+    <app-metric-card label="Avg. attack confidence" icon="target" tone="primary" [value]="summary().avgConf" description="Mean confidence of attack predictions" [loading]="!history().data && history().status !== 'error'" />
+    <app-metric-card label="Nodes affected" icon="server" tone="warning" [value]="summary().nodes" [description]="summary().analyzed + ' predictions analysed'" [loading]="!history().data && history().status !== 'error'" />
+  </section>
+
+  <section class="grid grid-main-side">
+    <app-chart-card title="Detection timeline" subtitle="Attack classifications per minute" icon="activity" [height]="240" [res]="history()" [empty]="!hasAttacks()" emptyTitle="No attack detected" emptyMessage="Every prediction in the loaded history is NORMAL.">
+      <div [appEchart]="timelineOptions()"></div>
+    </app-chart-card>
+    <app-chart-card title="Threat distribution by node" subtitle="Attack predictions per node and class" icon="chart-column" [height]="240" [res]="history()" [empty]="!hasAttacks()" emptyTitle="No attack detected">
+      <div [appEchart]="perNodeOptions()"></div>
+    </app-chart-card>
+  </section>
+
+  <div class="toolbar">
+    <div class="input-icon search">
+      <app-icon name="search" [size]="14" />
+      <input class="input" type="search" placeholder="Search event ID or node…" [value]="search()" (input)="search.set($any($event.target).value)" aria-label="Search events" />
+    </div>
+    <span class="toolbar__divider"></span>
+    <span class="toolbar__label">Node</span>
+    <select class="select" [value]="nodeFilter()" (change)="nodeFilter.set($any($event.target).value)" aria-label="Filter by node">
+      <option value="all">All nodes</option>
+      @for (id of nodeIds(); track id) {
+        <option [value]="id">{{ id }}</option>
+      }
+    </select>
+    <span class="toolbar__divider"></span>
+    <span class="toolbar__label">Scenario</span>
+    @for (c of classChips; track c) {
+      <button type="button" class="chip" [class.is-active]="classFilter() === c" (click)="classFilter.set(c)" [attr.aria-pressed]="classFilter() === c">
+        @if (c !== 'attacks' && c !== 'all') {
+          <span class="swatch" [style.background]="attackColor[c]"></span>
+        }
+        {{ classChipLabel(c) }}
+        <span class="chip__count">{{ classCounts()[c] ?? 0 }}</span>
+      </button>
+    }
+  </div>
+
+  <section class="card">
+    <div class="card__header">
+      <div class="card__title">
+        <app-icon name="shield-exclamation-point" [size]="15" /> Threat events
+        <span class="card__subtitle">{{ filtered().length }} events</span>
+      </div>
+      <span class="pill pill--local" title="Investigation status is stored in this browser only — no backend endpoint">Investigation status: local only</span>
+    </div>
+    <app-state [res]="history()" [empty]="filtered().length === 0" emptyTitle="No matching events" emptyMessage="Adjust the filters, or wait for new predictions." emptyIcon="shield-check">
+      <app-data-table
+        [columns]="columns"
+        [rows]="filtered()"
+        [trackKey]="eventKey"
+        [pageSize]="25"
+        [clickable]="true"
+        [selectedKey]="drawerOpen() ? selectedId() : null"
+        [initialSort]="{ key: 'timestamp', dir: 'desc' }"
+        (rowClick)="open($event)"
+      >
+        <ng-template appCell="eventId" let-e><span class="evt-id">{{ e.eventId }}</span></ng-template>
+        <ng-template appCell="node" let-e>{{ e.prediction.node_id }}</ng-template>
+        <ng-template appCell="attack" let-e><app-status-badge kind="attack" [value]="e.prediction.prediction" /></ng-template>
+        <ng-template appCell="confidence" let-e><app-confidence [value]="e.prediction.confidence" [label]="e.prediction.prediction" /></ng-template>
+        <ng-template appCell="timestamp" let-e><span [attr.title]="e.prediction.timestamp">{{ e.prediction.timestamp | dt }}</span></ng-template>
+        <ng-template appCell="severity" let-e><app-status-badge kind="severity" [value]="e.severity" /></ng-template>
+        <ng-template appCell="status" let-e>
+          <span class="inv tone-{{ investigationTone[investigation.get(e.id)] }}"><span class="dot"></span>{{ investigationLabel[investigation.get(e.id)] }}</span>
+        </ng-template>
+      </app-data-table>
+    </app-state>
+  </section>
+</div>
+
+<app-drawer [(open)]="drawerOpen" [title]="selected()?.eventId ?? ''" eyebrow="Threat event" [width]="500">
+  @if (selected(); as e) {
+    <div class="drawer-hero tone-{{ e.prediction.prediction === 'ECLIPSE' ? 'critical' : e.prediction.prediction === 'RPC_FLOODING' ? 'high' : 'success' }}">
+      <app-status-badge kind="attack" [value]="e.prediction.prediction" />
+      <div class="drawer-hero__title">{{ attackLabel[e.prediction.prediction] }}</div>
+      <div class="drawer-hero__conf mono">{{ e.prediction.confidence | pct }} <span>confidence</span></div>
+    </div>
+
+    <dl class="kv">
+      <dt>Event ID</dt><dd class="mono">{{ e.eventId }}</dd>
+      <dt>Prediction ID</dt><dd class="mono subtle">{{ e.id }}</dd>
+      <dt>Node</dt><dd><a class="mono" [routerLink]="['/nodes', e.prediction.node_id]">{{ e.prediction.node_id }}</a></dd>
+      <dt>Timestamp</dt><dd class="mono">{{ e.prediction.timestamp | dt }} <span class="subtle">({{ e.prediction.timestamp | ago: clock.now() }})</span></dd>
+      <dt>Severity</dt><dd><app-status-badge kind="severity" [value]="e.severity" /></dd>
+      @if (e.prediction.scenario) {
+        <dt>Scenario</dt><dd class="mono">{{ e.prediction.scenario }}</dd>
+      }
+    </dl>
+
+    <div>
+      <h3 class="drawer-h">Class probabilities</h3>
+      @if (hasProbabilities()) {
+        <app-prob-bar [probabilities]="e.prediction.probabilities" />
+        <div class="prob-chart" [appEchart]="probOptions()"></div>
+      } @else {
+        <p class="muted small">The API did not return per-class probabilities for this prediction.</p>
+      }
+    </div>
+
+    <div>
+      <h3 class="drawer-h">Investigation status <span class="pill pill--local">local only</span></h3>
+      <div class="segmented inv-seg" role="radiogroup" aria-label="Investigation status">
+        @for (s of investigationOptions; track s) {
+          <button type="button" role="radio" [class.is-active]="investigation.get(e.id) === s" [attr.aria-checked]="investigation.get(e.id) === s" (click)="setStatus(e.id, s)">
+            {{ investigationLabel[s] }}
+          </button>
+        }
+      </div>
+    </div>
+  }
+  <div drawer-footer class="drawer-footer">
+    @if (selected(); as e) {
+      <a class="btn" [routerLink]="['/nodes', e.prediction.node_id]"><app-icon name="server" [size]="14" /> Open node</a>
+      <a class="btn btn--primary" routerLink="/agent" [queryParams]="{ node: e.prediction.node_id, prediction: e.id }">
+        <app-icon name="bot" [size]="14" /> Investigate with AI agent
+      </a>
+    }
+  </div>
+</app-drawer>

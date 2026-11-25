@@ -1,0 +1,104 @@
+.search {
+  width: 240px;
+}
+.node-link {
+  font-weight: 600;
+  color: var(--eg-text);
+  &:hover { color: var(--eg-primary); }
+}
+.ml-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.node-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--eg-gap);
+}
+.node-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  color: var(--eg-text);
+  text-decoration: none;
+  border-top: 3px solid var(--tone);
+  transition: box-shadow var(--eg-transition), border-color var(--eg-transition);
+  &:hover {
+    text-decoration: none;
+    box-shadow: var(--eg-shadow-sm);
+    border-color: var(--eg-border-strong);
+    border-top-color: var(--tone);
+  }
+}
+.node-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  app-icon { color: var(--eg-text-2); }
+}
+.node-card__id {
+  font-weight: 600;
+  font-size: 15px;
+  flex: 1;
+}
+.node-card__components {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  div {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  span {
+    font-size: 10.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--eg-text-3);
+  }
+}
+.node-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  padding: 10px 0;
+  border-top: 1px solid var(--eg-border);
+  border-bottom: 1px solid var(--eg-border);
+  div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .wide { grid-column: span 4; flex-direction: row; justify-content: space-between; }
+  span {
+    font-size: 10.5px;
+    color: var(--eg-text-3);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  b {
+    font-weight: 500;
+    font-size: 13px;
+  }
+}
+.node-card__ml {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.node-card__ml-label {
+  font-size: 12px;
+  color: var(--eg-text-2);
+  margin-right: auto;
+}
+.node-card__foot {
+  font-size: 11px;
+  color: var(--eg-text-3);
+}

@@ -1,0 +1,132 @@
+<header class="tb">
+  <button class="btn btn--ghost btn--icon tb__menu" type="button" (click)="menuClick.emit()" aria-label="Open navigation">
+    <app-icon name="menu" [size]="18" />
+  </button>
+
+  <nav class="tb__crumbs" aria-label="Breadcrumb">
+    <ol>
+      @for (c of crumbs(); track $index; let last = $last) {
+        <li [class.is-current]="last">
+          @if (c.url && !last) {
+            <a [routerLink]="c.url">{{ c.label }}</a>
+          } @else {
+            <span [attr.aria-current]="last ? 'page' : null" [class.mono]="last && c.label.startsWith('node')">{{ c.label }}</span>
+          }
+          @if (!last) {
+            <app-icon name="chevron-right" [size]="12" />
+          }
+        </li>
+      }
+    </ol>
+  </nav>
+
+  <div class="tb__search" role="search">
+    <div class="input-icon tb__search-field">
+      <app-icon name="search" [size]="14" />
+      <input
+        #searchInput
+        class="input"
+        type="search"
+        placeholder="Search nodes, alerts, pages…"
+        aria-label="Global search"
+        autocomplete="off"
+        [value]="query()"
+        (input)="onQuery($any($event.target).value)"
+        (focus)="searchOpen.set(true)"
+        (keydown)="onSearchKey($event)"
+        role="combobox"
+        aria-controls="tb-search-results"
+        [attr.aria-expanded]="searchOpen() && results().length > 0"
+      />
+      <kbd class="tb__kbd">/</kbd>
+    </div>
+    @if (searchOpen() && query()) {
+      <div class="tb__dropdown tb__results" id="tb-search-results" role="listbox">
+        @for (r of results(); track r.url + r.label; let i = $index) {
+          <button
+            type="button"
+            role="option"
+            class="tb__result"
+            [class.is-active]="i === activeIndex()"
+            [attr.aria-selected]="i === activeIndex()"
+            (mouseenter)="activeIndex.set(i)"
+            (click)="go(r)"
+          >
+            <app-icon [name]="r.icon" [size]="14" />
+            <span class="tb__result-label" [class.mono]="r.kind === 'node'">{{ r.label }}</span>
+            <span class="tb__result-hint">{{ r.hint }}</span>
+          </button>
+        } @empty {
+          <div class="tb__empty">No match for “{{ query() }}”</div>
+        }
+      </div>
+    }
+  </div>
+
+  <div class="tb__right">
+    <div class="tb__status tone-{{ network().tone }}" [attr.data-tip]="network().title" data-tip-pos="bottom">
+      <app-icon name="network" [size]="14" />
+      <span class="tb__status-label">Network</span>
+      <span class="dot"></span>
+      <span class="tb__status-value">{{ network().label }}</span>
+    </div>
+
+    <a routerLink="/settings" class="tb__status tone-{{ backend().tone }}" [attr.data-tip]="backend().title" data-tip-pos="bottom">
+      <app-icon [name]="backend().tone === 'critical' ? 'unplug' : 'plug'" [size]="14" />
+      <span class="tb__status-label">FastAPI</span>
+      <span class="dot" [class.dot--pulse]="backend().tone === 'success'"></span>
+      <span class="tb__status-value">{{ backend().label }}</span>
+      @if (backend().detail) {
+        <span class="tb__latency mono">{{ backend().detail }}</span>
+      }
+    </a>
+
+    <div class="tb__clock mono" aria-label="Current date and time">
+      <span class="tb__date">{{ dateLabel() }}</span>
+      <span class="tb__time">{{ timeLabel() }}</span>
+      <span class="tb__tz">{{ tzLabel() }}</span>
+    </div>
+
+    <div class="tb__notif">
+      <button
+        class="btn btn--ghost btn--icon tb__bell"
+        type="button"
+        (click)="toggleNotifications()"
+        [attr.aria-label]="'Notifications, ' + notifications.unreadCount() + ' unread'"
+        [attr.aria-expanded]="notifOpen()"
+      >
+        <app-icon name="bell" [size]="17" />
+        @if (notifications.unreadCount() > 0) {
+          <span class="tb__bell-count mono">{{ notifications.unreadCount() > 9 ? '9+' : notifications.unreadCount() }}</span>
+        }
+      </button>
+      @if (notifOpen()) {
+        <div class="tb__dropdown tb__notif-panel" role="dialog" aria-label="Notifications">
+          <div class="tb__notif-head">
+            <strong>Notifications</strong>
+            <button class="btn btn--ghost btn--sm" type="button" (click)="notifications.markAllRead()" [disabled]="!notifications.unreadCount()">Mark all read</button>
+          </div>
+          <div class="tb__notif-list">
+            @for (n of notifications.items(); track n.id) {
+              <a class="tb__notif-item tone-{{ n.tone }}" [class.is-unread]="!n.read" [routerLink]="n.link ?? '/alerts'" (click)="notifOpen.set(false)">
+                <span class="tb__notif-icon"><app-icon [name]="n.icon" [size]="14" /></span>
+                <span class="tb__notif-text">
+                  <span class="tb__notif-title">{{ n.title }}</span>
+                  <span class="tb__notif-msg mono">{{ n.message }}</span>
+                </span>
+                <span class="tb__notif-time mono">{{ ago(n.createdAt) }}</span>
+              </a>
+            } @empty {
+              <div class="tb__empty">
+                No notifications yet. New active alerts raised while you are on EVA-Guard appear here.
+              </div>
+            }
+          </div>
+          <a class="tb__notif-foot" routerLink="/alerts" (click)="notifOpen.set(false)">Open Security Alerts <app-icon name="arrow-right" [size]="12" /></a>
+        </div>
+      }
+    </div>
+
+    <a class="tb__avatar" routerLink="/settings" data-tip="Security Analyst" data-tip-pos="bottom" aria-label="User settings">SA</a>
+  </div>
+</header>

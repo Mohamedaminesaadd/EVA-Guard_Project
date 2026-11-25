@@ -1,0 +1,154 @@
+<div class="page settings">
+  <header class="page-header">
+    <div>
+      <h1>Settings</h1>
+      <p class="page-header__sub">Backend connection, data source, refresh rate and local data.</p>
+    </div>
+  </header>
+
+  <!-- Data source -->
+  <section class="card">
+    <div class="card__header"><div class="card__title"><app-icon name="database" [size]="15" /> Data source</div></div>
+    <div class="card__body source">
+      <button type="button" class="source__opt" [class.is-active]="settings.dataSource() === 'live'" (click)="settings.dataSource.set('live')" [attr.aria-pressed]="settings.dataSource() === 'live'">
+        <span class="source__icon tone-success"><app-icon name="plug" [size]="16" /></span>
+        <span class="source__text">
+          <strong>Live — FastAPI</strong>
+          <span>Every value comes from the backend. Errors are shown as errors; nothing is replaced by fake data.</span>
+        </span>
+      </button>
+      <button type="button" class="source__opt" [class.is-active]="settings.dataSource() === 'demo'" (click)="settings.dataSource.set('demo')" [attr.aria-pressed]="settings.dataSource() === 'demo'">
+        <span class="source__icon tone-warning"><app-icon name="flask-conical" [size]="16" /></span>
+        <span class="source__text">
+          <strong>Demo — simulated data</strong>
+          <span>Deterministic simulation of node-01…node-05 for UI review without a backend. Always flagged on screen.</span>
+        </span>
+      </button>
+    </div>
+  </section>
+
+  <!-- API -->
+  <section class="card">
+    <div class="card__header">
+      <div class="card__title"><app-icon name="server" [size]="15" /> FastAPI connection</div>
+      <span class="conn tone-{{ connection.state() === 'connected' ? 'success' : connection.state() === 'demo' ? 'warning' : connection.state() === 'connecting' ? 'info' : 'critical' }}">
+        <span class="dot"></span>{{ connection.state() }}
+        @if (connection.latencyMs() !== null && connection.state() === 'connected') {
+          <span class="mono">· {{ connection.latencyMs() | ms }}</span>
+        }
+      </span>
+    </div>
+    <div class="card__body stack-lg">
+      <div class="field">
+        <label for="api-url">API base URL</label>
+        <div class="row">
+          <input id="api-url" class="input mono url-input" type="url" [placeholder]="env.apiBaseUrl" [value]="urlDraft()" (input)="urlDraft.set($any($event.target).value)" (keydown.enter)="applyUrl()" />
+          <button class="btn" type="button" (click)="applyUrl()">Apply</button>
+          @if (settings.apiBaseUrlOverride()) {
+            <button class="btn btn--ghost" type="button" (click)="resetUrl()">Use environment default</button>
+          }
+        </div>
+        <span class="field__hint">
+          Effective: <code>{{ settings.apiRoot() }}</code> · default from <code>environment.ts</code>: <code>{{ env.apiBaseUrl }}{{ env.apiPrefix }}</code>.
+          FastAPI must allow this origin via CORSMiddleware.
+        </span>
+      </div>
+
+      <div class="field">
+        <label for="interval">Polling interval</label>
+        <div class="row">
+          <select id="interval" class="select" [value]="settings.pollingIntervalMs()" (change)="settings.pollingIntervalMs.set(+$any($event.target).value)">
+            @for (i of intervals; track i) {
+              <option [value]="i">Every {{ i / 1000 }} s{{ i === 3000 ? ' (default)' : '' }}</option>
+            }
+          </select>
+        </div>
+        <span class="field__hint">Shared streams: one request per endpoint per tick, paused while the tab is hidden.</span>
+      </div>
+
+      <div>
+        <div class="row row--between">
+          <strong class="sub">Endpoint diagnostics</strong>
+          <div class="row">
+            @if (probeSummary()) {
+              <span class="mono muted">{{ probeSummary() }}</span>
+            }
+            <button class="btn btn--primary btn--sm" type="button" (click)="testEndpoints()" [disabled]="probing()">
+              <app-icon name="refresh-cw" [size]="13" /> {{ probing() ? 'Testing…' : 'Test all endpoints' }}
+            </button>
+          </div>
+        </div>
+        <div class="table-wrap diag">
+          <table class="table table--compact">
+            <thead>
+              <tr><th>Endpoint</th><th>Result</th><th class="is-num">HTTP</th><th class="is-num">Latency</th></tr>
+            </thead>
+            <tbody>
+              @for (path of endpoints(); track path; let i = $index) {
+                <tr>
+                  <td class="mono">GET {{ env.apiPrefix }}{{ path }}</td>
+                  <td>
+                    @if (probes()[i]; as p) {
+                      <span class="res tone-{{ p.ok ? 'success' : 'critical' }}"><app-icon [name]="p.ok ? 'circle-check' : 'circle-x'" [size]="13" /> {{ p.message }}</span>
+                    } @else {
+                      <span class="subtle">{{ probing() ? '…' : 'not tested' }}</span>
+                    }
+                  </td>
+                  <td class="is-num mono">{{ probes()[i] ? (probes()[i].status > 0 ? probes()[i].status : '—') : '' }}</td>
+                  <td class="is-num mono">{{ probes()[i] ? (probes()[i].latencyMs | ms) : '' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid grid-2">
+    <!-- Notifications -->
+    <div class="card">
+      <div class="card__header"><div class="card__title"><app-icon name="bell" [size]="15" /> Notifications</div></div>
+      <div class="card__body">
+        <label class="switch">
+          <input type="checkbox" [checked]="settings.notificationsEnabled()" (change)="settings.notificationsEnabled.set($any($event.target).checked)" />
+          Toast + bell notification when a new active alert appears
+        </label>
+      </div>
+    </div>
+
+    <!-- Agent -->
+    <div class="card">
+      <div class="card__header"><div class="card__title"><app-icon name="bot" [size]="15" /> AI agent</div></div>
+      <div class="card__body stack">
+        <div class="row">
+          <span class="muted">Endpoint:</span>
+          <code>{{ agent.endpoint ?? 'not configured (environment.agentEndpoint = null)' }}</code>
+        </div>
+        <label class="switch">
+          <input type="checkbox" [checked]="settings.agentMockMode()" (change)="settings.agentMockMode.set($any($event.target).checked)" [disabled]="!!agent.endpoint" />
+          Mock mode — illustrative responses when no endpoint is configured
+        </label>
+      </div>
+    </div>
+  </section>
+
+  <!-- Local data -->
+  <section class="card">
+    <div class="card__header">
+      <div class="card__title"><app-icon name="hard-drive" [size]="15" /> Local browser data</div>
+      @if (cleared()) {
+        <span class="pill tone-success cleared"><app-icon name="check" [size]="11" /> Cleared</span>
+      }
+    </div>
+    <div class="local">
+      <div class="local__row"><span><strong>Alert triage</strong> — local acknowledge/resolve overrides</span><button class="btn btn--sm btn--danger" type="button" (click)="clear('alerts')">Clear</button></div>
+      <div class="local__row"><span><strong>Investigation statuses</strong> — threat event triage</span><button class="btn btn--sm btn--danger" type="button" (click)="clear('investigations')">Clear</button></div>
+      <div class="local__row"><span><strong>AI investigations</strong> — conversation history</span><button class="btn btn--sm btn--danger" type="button" (click)="clear('conversations')">Clear</button></div>
+      <div class="local__row"><span><strong>Metrics buffer</strong> — session time-series built from polling</span><button class="btn btn--sm btn--danger" type="button" (click)="clear('buffer')">Clear</button></div>
+      <div class="local__row"><span><strong>Settings</strong> — restore defaults</span><button class="btn btn--sm" type="button" (click)="clear('settings')">Reset</button></div>
+    </div>
+  </section>
+
+  <p class="about mono">EVA-Guard UI · Angular {{ angularVersion }} · {{ env.production ? 'production' : 'development' }} build</p>
+</div>

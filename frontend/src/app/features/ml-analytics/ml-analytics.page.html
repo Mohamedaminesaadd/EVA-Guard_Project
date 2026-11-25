@@ -1,0 +1,118 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>ML Analytics</h1>
+      <p class="page-header__sub">{{ model.framework }} · {{ model.estimator }} — {{ model.featureCount }} engineered features, 3 classes.</p>
+    </div>
+    <div class="page-header__actions">
+      <app-live-indicator [res]="history()" />
+    </div>
+  </header>
+
+  <!-- Model overview -->
+  <h2 class="section-title"><app-icon name="brain-circuit" [size]="14" /> Model overview</h2>
+  <section class="overview card">
+    <div class="ov">
+      <span class="ov__label">Model</span>
+      <span class="ov__value">{{ model.name }}</span>
+      <span class="ov__hint">{{ model.framework }}</span>
+    </div>
+    <div class="ov">
+      <span class="ov__label">Model status</span>
+      <span class="ov__value"><span class="status tone-{{ modelStatus().tone }}"><span class="dot"></span>{{ modelStatus().label }}</span></span>
+      <span class="ov__hint">{{ modelStatus().hint }}</span>
+    </div>
+    <div class="ov">
+      <span class="ov__label">Features</span>
+      <span class="ov__value mono">{{ model.featureCount }}</span>
+      <span class="ov__hint">Temporal + engineered metrics</span>
+    </div>
+    <div class="ov">
+      <span class="ov__label">Supported classes</span>
+      <span class="ov__value ov__classes">
+        @for (c of model.classes; track c) {
+          <app-status-badge kind="attack" [value]="c" />
+        }
+      </span>
+    </div>
+    <div class="ov">
+      <span class="ov__label">Last prediction</span>
+      <span class="ov__value mono">{{ lastPrediction() | ago: clock.now() }}</span>
+      <span class="ov__hint mono">{{ lastPrediction() ?? '—' }}</span>
+    </div>
+    <div class="ov">
+      <span class="ov__label">Total predictions</span>
+      <span class="ov__value mono">{{ totalPredictions().value }}</span>
+      <span class="ov__hint">{{ totalPredictions().hint }}</span>
+    </div>
+  </section>
+
+  <!-- Model performance -->
+  <div class="section-row">
+    <h2 class="section-title"><app-icon name="target" [size]="14" /> Model performance</h2>
+    <span class="pill pill--outline offline-pill" title="Computed once on the held-out test set during training — not live accuracy">
+      <app-icon name="flask-conical" [size]="11" /> {{ offline.label }} · not live accuracy
+    </span>
+  </div>
+  <section class="grid perf">
+    <div class="grid-kpi perf__cards">
+      @for (c of offlineCards; track c.label) {
+        <app-metric-card [label]="c.label" [value]="c.value" unit="%" [icon]="c.icon" tone="info" description="Held-out test set" badge="offline" />
+      }
+    </div>
+    <app-chart-card title="Confusion matrix" subtitle="Rows: true class · Columns: predicted class" icon="layout-grid" [height]="230" [empty]="!confusionOptions()" emptyTitle="Confusion matrix not provided" emptyMessage="Paste the matrix from sklearn.metrics.confusion_matrix into OFFLINE_EVALUATION.confusionMatrix (src/app/core/config/model-info.ts), or expose it from a backend endpoint.">
+      <div [appEchart]="confusionOptions()"></div>
+    </app-chart-card>
+  </section>
+
+  <!-- Prediction analytics -->
+  <h2 class="section-title"><app-icon name="chart-line" [size]="14" /> Prediction analytics <span class="muted section-note">{{ preds().length }} predictions loaded</span></h2>
+  <section class="grid grid-3">
+    <app-chart-card title="Prediction distribution" icon="chart-pie" [height]="250" [res]="history()" [empty]="preds().length === 0" emptyTitle="No predictions">
+      <div [appEchart]="distributionOptions()"></div>
+    </app-chart-card>
+    <app-chart-card title="Confidence distribution" subtitle="Predictions per confidence band, by class" icon="chart-column" [height]="250" [res]="history()" [empty]="preds().length === 0" emptyTitle="No predictions">
+      <div [appEchart]="confidenceOptions()"></div>
+    </app-chart-card>
+    <app-chart-card title="Attack classification trends" subtitle="Share of predictions per attack class" icon="trending-up" [height]="250" [res]="history()" [empty]="preds().length === 0" emptyTitle="No predictions">
+      <div [appEchart]="trendOptions()"></div>
+    </app-chart-card>
+  </section>
+
+  <app-chart-card title="Predictions over time" [subtitle]="bucketLabel()" icon="activity" [height]="230" [res]="history()" [empty]="preds().length === 0" emptyTitle="No predictions">
+    <div [appEchart]="overTimeOptions()"></div>
+  </app-chart-card>
+
+  <section class="card">
+    <div class="card__header">
+      <div class="card__title"><app-icon name="server" [size]="15" /> Per-node prediction statistics</div>
+      <a class="btn btn--sm btn--ghost" routerLink="/predictions">Prediction history <app-icon name="arrow-right" [size]="12" /></a>
+    </div>
+    <app-state [res]="history()" [empty]="nodeStats().length === 0" emptyTitle="No predictions">
+      <app-data-table [columns]="statColumns" [rows]="nodeStats()" [trackKey]="statKey" [compact]="true" [initialSort]="{ key: 'node_id', dir: 'asc' }">
+        <ng-template appCell="node_id" let-r><a class="mono node-link" [routerLink]="['/nodes', r.node_id]">{{ r.node_id }}</a></ng-template>
+        <ng-template appCell="last" let-r><span class="mono subtle">{{ r.last | ago: clock.now() }}</span></ng-template>
+      </app-data-table>
+    </app-state>
+  </section>
+
+  <!-- Feature engineering -->
+  <h2 class="section-title"><app-icon name="layers" [size]="14" /> Feature engineering <span class="muted section-note">{{ model.featureCount }} features in 5 families</span></h2>
+  <section class="features">
+    @for (f of features; track f.key; let i = $index) {
+      <article class="feature card">
+        <div class="feature__head">
+          <span class="feature__icon"><app-icon [name]="f.icon" [size]="15" /></span>
+          <span class="feature__step mono">0{{ i + 1 }}</span>
+        </div>
+        <h3>{{ f.name }}</h3>
+        <p>{{ f.description }}</p>
+        <div class="feature__sources">
+          @for (s of f.sources; track s) {
+            <code>{{ s }}</code>
+          }
+        </div>
+      </article>
+    }
+  </section>
+</div>

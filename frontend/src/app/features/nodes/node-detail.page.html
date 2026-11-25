@@ -1,0 +1,180 @@
+<div class="page">
+  <a routerLink="/nodes" class="back"><app-icon name="chevron-left" [size]="14" /> All nodes</a>
+
+  <app-state [res]="res()" [loadingRows]="6">
+    @if (node(); as n) {
+      <!-- Overview -->
+      <header class="hero card tone-{{ heroTone() }}">
+        <div class="hero__id">
+          <span class="hero__icon"><app-icon name="server" [size]="20" /></span>
+          <div>
+            <h1 class="mono">{{ n.node_id }}</h1>
+            <div class="hero__sub">
+              <app-status-badge kind="health" [value]="n.status" [title]="n.statusDerived ? 'Derived by the UI from metrics and ML prediction' : 'Reported by the backend'" />
+              <span class="muted">Updated <span class="mono">{{ n.last_update | ago: clock.now() }}</span></span>
+              @if (n.statusDerived) {
+                <span class="pill pill--outline" title="The backend did not send a status; the UI derived it">derived status</span>
+              }
+            </div>
+          </div>
+        </div>
+        <div class="hero__ml">
+          <span class="hero__ml-label">Current ML classification</span>
+          @if (n.latest_prediction; as p) {
+            <div class="row">
+              <app-status-badge kind="attack" [value]="p.prediction" />
+              <app-confidence [value]="p.confidence" [label]="p.prediction" />
+            </div>
+            <app-prob-bar [probabilities]="p.probabilities" />
+          } @else {
+            <span class="na">No prediction yet</span>
+          }
+        </div>
+        <div class="hero__actions">
+          <app-live-indicator [res]="res()" />
+          <a class="btn btn--primary" routerLink="/agent" [queryParams]="{ node: n.node_id }"><app-icon name="bot" [size]="14" /> Investigate</a>
+        </div>
+      </header>
+
+      <!-- Component health -->
+      <h2 class="section-title"><app-icon name="layers" [size]="14" /> Component health</h2>
+      <section class="grid grid-3">
+        <div class="card comp">
+          <div class="comp__head"><app-icon name="blocks" [size]="16" /><strong>Geth</strong><span class="spacer"></span><app-status-badge kind="component" [value]="n.components.geth" /></div>
+          <dl class="kv kv--compact">
+            <dt>RPC</dt><dd class="mono">{{ n.metrics.rpc_available === null || n.metrics.rpc_available === undefined ? '—' : n.metrics.rpc_available ? 'available' : 'unreachable' }}</dd>
+            <dt>Synced</dt><dd class="mono">{{ n.metrics.is_synced === null || n.metrics.is_synced === undefined ? '—' : n.metrics.is_synced ? 'yes' : 'no' }}</dd>
+            <dt>Peers</dt><dd class="mono">{{ n.metrics.peer_count ?? '—' }}</dd>
+          </dl>
+        </div>
+        <div class="card comp">
+          <div class="comp__head"><app-icon name="radar" [size]="16" /><strong>Beacon (Lighthouse)</strong><span class="spacer"></span><app-status-badge kind="component" [value]="n.components.beacon" /></div>
+          <dl class="kv kv--compact">
+            <dt>Head slot</dt><dd class="mono">{{ n.metrics.head_slot ?? '—' }}</dd>
+            <dt>Sync distance</dt><dd class="mono">{{ n.metrics.sync_distance ?? '—' }}</dd>
+            <dt>Finalized epoch</dt><dd class="mono">{{ n.metrics.finalized_epoch ?? '—' }}</dd>
+          </dl>
+        </div>
+        <div class="card comp">
+          <div class="comp__head"><app-icon name="shield-check" [size]="16" /><strong>Validator (Lighthouse VC)</strong><span class="spacer"></span><app-status-badge kind="component" [value]="n.components.validator" /></div>
+          <dl class="kv kv--compact">
+            <dt>Attestations</dt><dd class="mono">{{ n.metrics.attestations_total ?? '—' }}</dd>
+            <dt>Blocks proposed</dt><dd class="mono">{{ n.metrics.blocks_proposed ?? '—' }}</dd>
+            <dt>Proposer duties</dt><dd class="mono">{{ n.metrics.proposer_duties ?? '—' }}</dd>
+          </dl>
+        </div>
+      </section>
+
+      <!-- System metrics -->
+      <div class="section-row">
+        <h2 class="section-title">
+          <app-icon name="hard-drive" [size]="14" /> System metrics
+          @if (res().source === 'live') {
+            <span class="section-note">session buffer from GET /nodes polling — no history endpoint yet</span>
+          }
+        </h2>
+        <app-time-range-selector [(value)]="range" />
+      </div>
+      <section class="grid grid-3">
+        <app-chart-card title="CPU usage" unit="%" icon="cpu" [height]="170" [empty]="cpuChart().empty" emptyTitle="No samples in range" emptyMessage="Live charts are built from GET /nodes polling during this session.">
+          <div [appEchart]="cpuChart().options"></div>
+        </app-chart-card>
+        <app-chart-card title="Memory usage" unit="MB" icon="memory-stick" [height]="170" [empty]="memChart().empty" emptyTitle="No samples in range">
+          <div [appEchart]="memChart().options"></div>
+        </app-chart-card>
+        <app-chart-card title="Network RX / TX" unit="bytes/s" icon="network" [height]="170" [empty]="netChart().empty" emptyTitle="No samples in range">
+          <div [appEchart]="netChart().options"></div>
+        </app-chart-card>
+      </section>
+
+      <!-- Ethereum metrics -->
+      <h2 class="section-title"><app-icon name="blocks" [size]="14" /> Geth metrics</h2>
+      <section class="grid-kpi dense">
+        @for (c of gethCards(); track c.def.key) {
+          <app-metric-card [label]="c.def.title" [value]="c.value" [unit]="c.def.unit" [compact]="true" />
+        }
+      </section>
+
+      <section class="grid grid-2">
+        <div>
+          <h2 class="section-title"><app-icon name="radar" [size]="14" /> Beacon metrics</h2>
+          <div class="grid-kpi dense">
+            @for (c of beaconCards(); track c.def.key) {
+              <app-metric-card [label]="c.def.title" [value]="c.value" [unit]="c.def.unit" [compact]="true" />
+            }
+          </div>
+        </div>
+        <div>
+          <h2 class="section-title"><app-icon name="shield-check" [size]="14" /> Validator metrics</h2>
+          <div class="grid-kpi dense">
+            @for (c of validatorCards(); track c.def.key) {
+              <app-metric-card [label]="c.def.title" [value]="c.value" [unit]="c.def.unit" [compact]="true" />
+            }
+          </div>
+        </div>
+      </section>
+
+      <!-- Predictions -->
+      <h2 class="section-title"><app-icon name="brain-circuit" [size]="14" /> Prediction history</h2>
+      <section class="grid grid-main-side">
+        <div class="stack-col">
+          <app-chart-card [title]="probabilityChart().title" icon="chart-line" [height]="200" [res]="predictions()" [empty]="probabilityChart().empty" emptyTitle="No predictions for this node">
+            <div [appEchart]="probabilityChart().options"></div>
+          </app-chart-card>
+          <div class="card">
+            <app-state [res]="predictions()" [empty]="predictionList().length === 0" emptyTitle="No predictions" [compact]="true">
+              <app-data-table [columns]="predictionColumns" [rows]="predictionList()" [trackKey]="predKey" [pageSize]="10" [pageSizeOptions]="[10, 25, 50]" [compact]="true" [initialSort]="{ key: 'timestamp', dir: 'desc' }">
+                <ng-template appCell="timestamp" let-p>{{ p.timestamp | dt }}</ng-template>
+                <ng-template appCell="prediction" let-p><app-status-badge kind="attack" [value]="p.prediction" /></ng-template>
+                <ng-template appCell="confidence" let-p><app-confidence [value]="p.confidence" [label]="p.prediction" /></ng-template>
+                <ng-template appCell="probs" let-p><app-prob-bar [probabilities]="p.probabilities" /></ng-template>
+              </app-data-table>
+            </app-state>
+          </div>
+        </div>
+
+        <div class="stack-col">
+          <div class="card">
+            <div class="card__header">
+              <div class="card__title"><app-icon name="radar" [size]="15" /> Threat events</div>
+              <a class="btn btn--sm btn--ghost" routerLink="/threats">All threats <app-icon name="arrow-right" [size]="12" /></a>
+            </div>
+            @if (threatEvents().length) {
+              <ul class="evt-list">
+                @for (p of threatEvents(); track p.id) {
+                  <li>
+                    <app-status-badge kind="attack" [value]="p.prediction" />
+                    <span class="mono">{{ p.confidence | pct }}</span>
+                    <span class="mono subtle evt-time">{{ p.timestamp | ago: clock.now() }}</span>
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="empty-line">No attack predicted in the loaded history.</p>
+            }
+          </div>
+          <div class="card">
+            <div class="card__header">
+              <div class="card__title"><app-icon name="bell-ring" [size]="15" /> Alerts</div>
+              <a class="btn btn--sm btn--ghost" routerLink="/alerts">All alerts <app-icon name="arrow-right" [size]="12" /></a>
+            </div>
+            @if (nodeAlerts().length) {
+              <ul class="evt-list">
+                @for (a of nodeAlerts(); track a.id) {
+                  <li>
+                    <app-status-badge kind="severity" [value]="a.severity" />
+                    <span class="evt-type">{{ attackLabel[a.attack_type] }}</span>
+                    <app-status-badge kind="alert" [value]="a.status" />
+                    <span class="mono subtle evt-time">{{ a.timestamp | ago: clock.now() }}</span>
+                  </li>
+                }
+              </ul>
+            } @else {
+              <p class="empty-line">No alert for this node.</p>
+            }
+          </div>
+        </div>
+      </section>
+    }
+  </app-state>
+</div>
