@@ -1,31 +1,3 @@
-//! EVA-Guard monitoring engine: entry point.
-//!
-//! Usage:
-//! - `monitoring-rust` runs the monitoring for one scenario (`EVA_SCENARIO`).
-//! - `monitoring-rust --campaign` runs NORMAL, then ECLIPSE, then
-//!   RPC_FLOODING back to back, applying and undoing each attack, and writes
-//!   the three datasets in one run (`EVA_SCENARIO` is ignored).
-//! - `monitoring-rust --campaign --sessions N` runs the whole
-//!   NORMAL → ECLIPSE → RPC_FLOODING sequence N times. Each session is written
-//!   to its own `sessionX` sub-directory (`data/session1`, `data/session2`, …)
-//!   so the sessions stay separate. With one session (the default) the datasets
-//!   stay directly in `EVA_DATA_DIR`, exactly as before.
-//! - `monitoring-rust --check` only checks that every endpoint answers, then
-//!   exits (status 1 if one fails).
-//!
-//! Environment variables (all optional):
-//! - `NODES_CONFIG`: path of the nodes file (default `config/nodes.toml`)
-//! - `EVA_SCENARIO`: `NORMAL`, `ECLIPSE` or `RPC_FLOODING` (default `NORMAL`),
-//!   single-run only
-//! - `EVA_DATA_DIR`: directory of the JSONL datasets (default `data`)
-//! - `RUST_LOG`: log filter (default `info`)
-//!
-//! Campaign only:
-//! - `EVA_ATTACK_TARGET`: victim node id (default: the first node)
-//! - `EVA_PHASE_SECS`: duration of each scenario phase (default 180)
-//! - `EVA_COOLDOWN_SECS`: pause between phases (default 15)
-//! - `EVA_FLOOD_CONCURRENCY`: concurrent workers of the RPC flood (default 64)
-
 use std::env;
 use std::error::Error;
 use std::path::PathBuf;
@@ -40,6 +12,7 @@ use monitoring_rust::monitoring::preflight::{all_ok, check_nodes, render_report}
 use monitoring_rust::monitoring::scheduler::Scheduler;
 use monitoring_rust::storage::JsonlStorage;
 
+const ENV_MODE: &str = "EVA_MODE";
 const ENV_SCENARIO: &str = "EVA_SCENARIO";
 const ENV_DATA_DIR: &str = "EVA_DATA_DIR";
 const DEFAULT_DATA_DIR: &str = "data";
@@ -58,7 +31,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // 1. Load configuration
     let config = NodesConfig::from_env()?;
-    let scenario = scenario_from(env::var(ENV_SCENARIO).ok().as_deref())?;
+    let mode = mode_from(env::var(ENV_MODE).ok().as_deref())?;
+    let scenario = match mode {
+        MonitoringMode::Training => Some(scenario_from(env::var(ENV_SCENARIO).ok().as_deref())?),
+        MonitoringMode::Live => None,
+    };
     let data_dir = env::var_os(ENV_DATA_DIR)
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(DEFAULT_DATA_DIR));
@@ -72,7 +49,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
         config.settings.collection_interval()
     );
     println!("Request timeout: {:?}", config.settings.request_timeout());
-    println!("Scenario: {scenario}");
+    match scenario {
+        Some(scenario) => println!("Mode: training | Scenario: {scenario}"),
+        None => println!("Mode: live | Scenario: unlabelled"),
+    }
 
     // 2. Check every endpoint once, and say why one is unreachable
     let cli = Cli::from_args(env::args().skip(1))?;
@@ -94,6 +74,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     if cli.campaign {
+        if mode != MonitoringMode::Training {
+            return Err("--campaign is only available in EVA_MODE=training".into());
+        }
         return run_campaign(&config, data_dir, cli.sessions).await;
     }
 
@@ -101,7 +84,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let storage = JsonlStorage::new(&data_dir)?;
 
     println!("[3] Storage ready");
-    println!("Dataset: {}", storage.scenario_path(scenario).display());
+    let dataset_path = match scenario {
+        Some(scenario) => storage.scenario_path(scenario),
+        None => storage.live_path(),
+    };
+    println!("Dataset: {}", dataset_path.display());
 
     // 4. Build the scheduler: clients, collectors and time budgets of every node
     let scheduler = Scheduler::from_config(&config, scenario, storage)?;
@@ -190,7 +177,10 @@ async fn run_campaign(
                 (Some(run), _) => {
                     let attack = match &phase.attack {
                         Some(attack) => {
-                            format!(" | attack actions={} errors={}", attack.actions, attack.errors)
+                            format!(
+                                " | attack actions={} errors={}",
+                                attack.actions, attack.errors
+                            )
                         }
                         None => String::new(),
                     };
@@ -200,7 +190,11 @@ async fn run_campaign(
                         run.cycles_completed,
                         run.observations_written,
                         attack,
-                        if phase.interrupted { " (interrupted)" } else { "" },
+                        if phase.interrupted {
+                            " (interrupted)"
+                        } else {
+                            ""
+                        },
                     );
                 }
                 (None, Some(reason)) => {
@@ -286,6 +280,24 @@ fn parse_sessions(value: &str) -> Result<usize, Box<dyn Error>> {
         Ok(count) if count >= 1 => Ok(count),
         Ok(_) => Err("--sessions must be at least 1".into()),
         Err(_) => Err(format!("--sessions needs a whole number, got `{value}`").into()),
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MonitoringMode {
+    Training,
+    Live,
+}
+
+/// `EVA_MODE`: unset means `training`.
+fn mode_from(value: Option<&str>) -> Result<MonitoringMode, Box<dyn Error>> {
+    match value {
+        None => Ok(MonitoringMode::Training),
+        Some(value) if value.eq_ignore_ascii_case("training") => Ok(MonitoringMode::Training),
+        Some(value) if value.eq_ignore_ascii_case("live") => Ok(MonitoringMode::Live),
+        Some(value) => {
+            Err(format!("invalid EVA_MODE `{value}`; expected `training` or `live`").into())
+        }
     }
 }
 
@@ -412,6 +424,31 @@ mod tests {
 
         assert!(error.contains("--chek"), "{error}");
         assert!(Cli::from_args(args(&["--check", "extra"])).is_err());
+    }
+
+    #[test]
+    fn mode_defaults_to_training() {
+        assert_eq!(mode_from(None).unwrap(), MonitoringMode::Training);
+    }
+
+    #[test]
+    fn training_and_live_modes_are_parsed_case_insensitively() {
+        assert_eq!(
+            mode_from(Some("training")).unwrap(),
+            MonitoringMode::Training
+        );
+        assert_eq!(
+            mode_from(Some("TRAINING")).unwrap(),
+            MonitoringMode::Training
+        );
+        assert_eq!(mode_from(Some("live")).unwrap(), MonitoringMode::Live);
+        assert_eq!(mode_from(Some("LIVE")).unwrap(), MonitoringMode::Live);
+    }
+
+    #[test]
+    fn an_unknown_mode_is_an_error() {
+        assert!(mode_from(Some("inference")).is_err());
+        assert!(mode_from(Some("")).is_err());
     }
 
     #[test]

@@ -1,4 +1,3 @@
-
 use reqwest::Client;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -104,11 +103,7 @@ impl GethClient {
     }
 
     /// Executes a generic JSON-RPC request and measures its latency.
-    pub async fn call<T>(
-        &self,
-        method: &str,
-        params: Vec<Value>,
-    ) -> Result<RpcResult<T>, GethError>
+    pub async fn call<T>(&self, method: &str, params: Vec<Value>) -> Result<RpcResult<T>, GethError>
     where
         T: DeserializeOwned,
     {
@@ -152,21 +147,15 @@ impl GethClient {
         }
 
         let value = reply.result.ok_or_else(|| {
-            GethError::InvalidResponse(
-                "Response contains neither result nor error".to_string(),
-            )
+            GethError::InvalidResponse("Response contains neither result nor error".to_string())
         })?;
 
-        Ok(RpcResult {
-            value,
-            latency_ms,
-        })
+        Ok(RpcResult { value, latency_ms })
     }
 
     /// Returns the current execution block number.
     pub async fn block_number(&self) -> Result<RpcResult<u64>, GethError> {
-        let result: RpcResult<String> =
-            self.call("eth_blockNumber", vec![]).await?;
+        let result: RpcResult<String> = self.call("eth_blockNumber", vec![]).await?;
 
         Ok(RpcResult {
             value: parse_hex_u64(&result.value)?,
@@ -176,8 +165,7 @@ impl GethClient {
 
     /// Returns the number of connected P2P peers.
     pub async fn peer_count(&self) -> Result<RpcResult<u64>, GethError> {
-        let result: RpcResult<String> =
-            self.call("net_peerCount", vec![]).await?;
+        let result: RpcResult<String> = self.call("net_peerCount", vec![]).await?;
 
         Ok(RpcResult {
             value: parse_hex_u64(&result.value)?,
@@ -196,17 +184,12 @@ impl GethClient {
     }
 
     /// Returns None when synchronized, Some(status) when syncing.
-    pub async fn syncing_status(
-        &self,
-    ) -> Result<RpcResult<Option<SyncStatus>>, GethError> {
-        let result: RpcResult<Value> =
-            self.call("eth_syncing", vec![]).await?;
+    pub async fn syncing_status(&self) -> Result<RpcResult<Option<SyncStatus>>, GethError> {
+        let result: RpcResult<Value> = self.call("eth_syncing", vec![]).await?;
 
         let status = match result.value {
             Value::Bool(false) => None,
-            Value::Object(_) => {
-                Some(serde_json::from_value(result.value)?)
-            }
+            Value::Object(_) => Some(serde_json::from_value(result.value)?),
             other => {
                 return Err(GethError::InvalidResponse(format!(
                     "Unexpected eth_syncing response: {}",
@@ -223,9 +206,7 @@ impl GethClient {
 
     /// Returns connected peers.
     /// Requires the admin namespace to be enabled in Geth.
-    pub async fn admin_peers(
-        &self,
-    ) -> Result<RpcResult<Vec<PeerInfo>>, GethError> {
+    pub async fn admin_peers(&self) -> Result<RpcResult<Vec<PeerInfo>>, GethError> {
         self.call("admin_peers", vec![]).await
     }
 

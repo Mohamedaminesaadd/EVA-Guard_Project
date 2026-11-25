@@ -1,4 +1,3 @@
-
 use reqwest::Client;
 use std::collections::HashMap;
 use std::time::Duration;
@@ -55,9 +54,7 @@ impl ValidatorClient {
     }
 
     /// Retrieves and parses Prometheus metrics.
-    pub async fn collect_metrics(
-        &self,
-    ) -> Result<Vec<PrometheusMetric>, ValidatorError> {
+    pub async fn collect_metrics(&self) -> Result<Vec<PrometheusMetric>, ValidatorError> {
         let raw_metrics = self.get_metrics().await?;
 
         parse_prometheus_metrics(&raw_metrics)
@@ -89,9 +86,7 @@ impl ValidatorClient {
 /// metric_name 123.45
 ///
 /// Comments and HELP/TYPE declarations are ignored.
-pub fn parse_prometheus_metrics(
-    input: &str,
-) -> Result<Vec<PrometheusMetric>, ValidatorError> {
+pub fn parse_prometheus_metrics(input: &str) -> Result<Vec<PrometheusMetric>, ValidatorError> {
     let mut metrics = Vec::new();
 
     for line in input.lines() {
@@ -103,13 +98,11 @@ pub fn parse_prometheus_metrics(
 
         let (metric_part, value_part) = line
             .rsplit_once(char::is_whitespace)
-            .ok_or_else(|| {
-                ValidatorError::InvalidMetrics(line.to_string())
-            })?;
+            .ok_or_else(|| ValidatorError::InvalidMetrics(line.to_string()))?;
 
-        let value: f64 = value_part.parse().map_err(|_| {
-            ValidatorError::InvalidMetrics(line.to_string())
-        })?;
+        let value: f64 = value_part
+            .parse()
+            .map_err(|_| ValidatorError::InvalidMetrics(line.to_string()))?;
 
         let (name, labels) = parse_metric_name_and_labels(metric_part)?;
 
@@ -141,15 +134,10 @@ fn parse_metric_name_and_labels(
 
     for label in labels_part.split(',') {
         let Some((key, value)) = label.split_once('=') else {
-            return Err(ValidatorError::InvalidMetrics(
-                input.to_string(),
-            ));
+            return Err(ValidatorError::InvalidMetrics(input.to_string()));
         };
 
-        let value = value
-            .trim()
-            .trim_matches('"')
-            .to_string();
+        let value = value.trim().trim_matches('"').to_string();
 
         labels.insert(key.trim().to_string(), value);
     }
@@ -174,8 +162,7 @@ mod tests {
 
     #[test]
     fn parses_metric_with_labels() {
-        let input =
-            r#"async_tasks_count{async_task_count="attestation_service"} 1"#;
+        let input = r#"async_tasks_count{async_task_count="attestation_service"} 1"#;
 
         let metrics = parse_prometheus_metrics(input).unwrap();
 

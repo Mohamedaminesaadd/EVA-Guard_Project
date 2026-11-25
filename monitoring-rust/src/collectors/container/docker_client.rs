@@ -106,7 +106,8 @@ impl DockerClient {
     /// Lists running Docker containers. Container IDs and labels are kept so
     /// callers can safely discover services without relying on names.
     pub async fn list_containers(&self) -> Result<Vec<DockerContainer>, DockerClientError> {
-        self.list_containers_with_filters(HashMap::new(), false).await
+        self.list_containers_with_filters(HashMap::new(), false)
+            .await
     }
 
     /// Lists every Kurtosis user-service container, stopped ones included,

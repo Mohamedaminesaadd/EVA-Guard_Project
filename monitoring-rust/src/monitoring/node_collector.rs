@@ -1,35 +1,3 @@
-//! Collection of ONE node set (Geth + Beacon Node + Validator Client).
-//!
-//! A [`NodeCollector`] runs, for one node, every collector of the three
-//! components **concurrently** and returns a [`NodeSnapshot`]: the metrics of
-//! the three components for one cycle. It owns the collectors that keep state
-//! between two cycles (peer churn, request rate), so it must be built once
-//! and reused for the whole run, never rebuilt per cycle.
-//!
-//! # Time budget
-//!
-//! Every collector is bounded by `budget`. A collector that exceeds it is
-//! cancelled and its metrics stay `None` ("not measured"), while the other
-//! collectors of the node keep their answer: a single hanging endpoint
-//! cannot blank a whole node, and cannot make the cycle overrun. A collector
-//! cancelled this way does not update its own state, so the next peer churn
-//! or request rate is computed over the last cycle that did complete.
-//!
-//! # What is NOT collected here
-//!
-//! - `beacon.propagation` stays `None`: it compares the heads of **all** the
-//!   Beacon Nodes, so the scheduler computes it once per cycle and merges it.
-//!
-//! # System metrics
-//!
-//! With a [`NodeSystemCollector`] attached ([`NodeCollector::with_system`]),
-//! the CPU, memory, network and TCP metrics of the three containers of the
-//! node are collected concurrently with the application metrics, under the
-//! same budget. Each observation receives the metrics of its own container
-//! (see `system_collection`). Without one, the `system` groups stay `null`.
-//!
-//! [`NodeSource`] is the seam the scheduler works through, which keeps the
-//! scheduling logic testable without any network.
 
 use std::future::Future;
 use std::sync::Arc;
@@ -91,9 +59,10 @@ impl NodeSnapshot {
     pub fn into_observations(
         self,
         timestamp: DateTime<Utc>,
-        scenario: Scenario,
+        scenario: impl Into<Option<Scenario>>,
         interval: Duration,
     ) -> [Observation; 3] {
+        let scenario = scenario.into();
         let Self {
             node_id,
             geth,
@@ -680,7 +649,7 @@ mod tests {
         for observation in &observations {
             assert_eq!(observation.timestamp, stamp());
             assert_eq!(observation.node_id, "node-03");
-            assert_eq!(observation.scenario, Scenario::Eclipse);
+            assert_eq!(observation.scenario, Some(Scenario::Eclipse));
             assert_eq!(observation.collection_interval, 5);
         }
 
@@ -690,6 +659,18 @@ mod tests {
         assert_eq!(json["metrics"]["head_slot"], 1200);
         let json = serde_json::to_value(&observations[2]).unwrap();
         assert_eq!(json["metrics"]["validators_total"], 4);
+    }
+
+    #[test]
+    fn a_live_snapshot_has_no_scenario_label() {
+        let observations =
+            NodeSnapshot::unmeasured("node-live").into_observations(stamp(), None, BUDGET);
+
+        for observation in observations {
+            assert_eq!(observation.scenario, None);
+            let json = serde_json::to_value(&observation).unwrap();
+            assert!(json.get("scenario").is_none());
+        }
     }
 
     fn system_of(cpu: f64, memory: u64) -> crate::models::metrics::SystemMetrics {

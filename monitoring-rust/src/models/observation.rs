@@ -2,9 +2,9 @@
 //!
 //! One `Observation` = one JSONL line = the metrics of ONE component (Geth,
 //! Lighthouse Beacon Node or Validator Client) of ONE node, for one collection
-//! cycle, in one scenario.
+//! cycle. `scenario` is present for labelled training data and omitted for live detection.
 //!
-//! JSON layout (every key is always present):
+//! JSON layout in training mode (the `scenario` key is omitted in live mode):
 //!
 //! ```json
 //! {
@@ -175,8 +175,10 @@ pub struct Observation {
     pub timestamp: DateTime<Utc>,
     /// Identifier of the monitored node set (`nodes.toml` `id`).
     pub node_id: String,
-    /// Experimental scenario in progress.
-    pub scenario: Scenario,
+    /// Experimental scenario in progress. None in live detection mode.
+    /// The field is omitted from JSON when no label is available.
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub scenario: Option<Scenario>,
     /// Configured delay between two collection cycles, in seconds.
     pub collection_interval: u64,
     /// `component` + `metrics` keys.
@@ -195,7 +197,7 @@ impl Observation {
     /// and use [`Observation::new_at`] for each component.
     pub fn new(
         node_id: impl Into<String>,
-        scenario: Scenario,
+        scenario: impl Into<Option<Scenario>>,
         collection_interval: Duration,
         metrics: impl Into<ComponentMetrics>,
     ) -> Self {
@@ -207,14 +209,14 @@ impl Observation {
     pub fn new_at(
         timestamp: DateTime<Utc>,
         node_id: impl Into<String>,
-        scenario: Scenario,
+        scenario: impl Into<Option<Scenario>>,
         collection_interval: Duration,
         metrics: impl Into<ComponentMetrics>,
     ) -> Self {
         Self {
             timestamp: timestamp.with_nanosecond(0).unwrap_or(timestamp),
             node_id: node_id.into(),
-            scenario,
+            scenario: scenario.into(),
             collection_interval: collection_interval.as_secs(),
             metrics: metrics.into(),
             system: SystemMetrics::default(),
@@ -457,7 +459,7 @@ mod tests {
         Observation {
             timestamp: "2026-11-16T08:00:05Z".parse().unwrap(),
             node_id: "node-01".to_string(),
-            scenario: Scenario::Eclipse,
+            scenario: Some(Scenario::Eclipse),
             collection_interval: 5,
             metrics,
             system: full_system(),
@@ -551,7 +553,7 @@ mod tests {
             );
             assert_eq!(observation.collection_interval, 5);
             assert_eq!(observation.node_id, "node-01");
-            assert_eq!(observation.scenario, Scenario::Normal);
+            assert_eq!(observation.scenario, Some(Scenario::Normal));
             assert_eq!(observation.component(), component);
 
             let object = to_object(&observation);
@@ -657,6 +659,25 @@ mod tests {
     }
 
     #[test]
+    fn live_observation_omits_scenario_and_deserializes_without_it() {
+        let observation = Observation::new(
+            "node-live",
+            None,
+            Duration::from_secs(5),
+            ComponentMetrics::empty(Component::Geth),
+        );
+
+        assert_eq!(observation.scenario, None);
+
+        let value = serde_json::to_value(&observation).unwrap();
+        assert!(value.get("scenario").is_none());
+
+        let decoded: Observation = serde_json::from_value(value).unwrap();
+        assert_eq!(decoded.scenario, None);
+        assert_eq!(decoded.node_id, "node-live");
+    }
+
+    #[test]
     fn unknown_keys_are_ignored() {
         let mut value = serde_json::to_value(full_observation(Component::Geth)).unwrap();
         value["metrics"]["field_added_by_a_newer_version"] = json!(123);
@@ -668,7 +689,7 @@ mod tests {
     #[test]
     fn metadata_is_required() {
         let valid = serde_json::to_value(full_observation(Component::Geth)).unwrap();
-        for key in TOP_KEYS {
+        for key in TOP_KEYS.into_iter().filter(|key| *key != "scenario") {
             let mut value = valid.clone();
             value.as_object_mut().unwrap().remove(key);
             assert!(

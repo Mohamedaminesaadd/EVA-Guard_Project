@@ -176,7 +176,10 @@ mod tests {
         // Every counted request got a full response, so the server saw at
         // least that many (a request aborted at cancel may hit the server
         // without being counted, so the server's tally can be higher).
-        assert!(hits.load(Ordering::SeqCst) as u64 >= report.actions, "{report:?}");
+        assert!(
+            hits.load(Ordering::SeqCst) as u64 >= report.actions,
+            "{report:?}"
+        );
     }
 
     #[tokio::test]

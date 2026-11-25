@@ -1,9 +1,10 @@
-//! Append-only JSONL storage: one dataset file per experimental scenario.
+//! Append-only JSONL storage for labelled training and unlabelled live observations.
 //!
 //! ```text
-//! <data_dir>/normal.jsonl        one `Observation` per line
+//! <data_dir>/normal.jsonl        labelled training observations
 //! <data_dir>/eclipse.jsonl
 //! <data_dir>/rpc_flooding.jsonl
+//! <data_dir>/live_observations.jsonl  unlabelled live observations
 //! ```
 //!
 //! Each line is a complete, compact JSON object ending with `\n`. JSON escapes
@@ -52,7 +53,7 @@ pub enum JsonlStorageError {
     Serialization(#[from] serde_json::Error),
 }
 
-/// JSONL storage separated by experimental scenario.
+/// JSONL storage for labelled scenarios and unlabelled live detection.
 #[derive(Debug, Clone)]
 pub struct JsonlStorage {
     data_dir: PathBuf,
@@ -68,9 +69,21 @@ impl JsonlStorage {
         Ok(Self { data_dir })
     }
 
-    /// Returns the dataset path for an observation's scenario.
+    /// Returns the dataset path for an observation.
+    ///
+    /// Labelled observations are written to their scenario dataset.
+    /// Unlabelled observations (`scenario: None`) are written to
+    /// `live_observations.jsonl`.
     pub fn dataset_path(&self, observation: &Observation) -> PathBuf {
-        self.scenario_path(observation.scenario)
+        match observation.scenario {
+            Some(scenario) => self.scenario_path(scenario),
+            None => self.live_path(),
+        }
+    }
+
+    /// Returns the dataset path for unlabelled live observations.
+    pub fn live_path(&self) -> PathBuf {
+        self.data_dir.join("live_observations.jsonl")
     }
 
     /// Returns the dataset path of a scenario (`<data_dir>/<dataset_name>.jsonl`).
@@ -97,13 +110,16 @@ impl JsonlStorage {
     /// planned shutdown, or at the end of a scenario, to also survive a power
     /// loss. A dataset that does not exist yet is skipped.
     pub fn flush(&self) -> Result<(), io::Error> {
-        for scenario in Scenario::ALL {
+        let mut paths: Vec<PathBuf> = Scenario::ALL
+            .into_iter()
+            .map(|scenario| self.scenario_path(scenario))
+            .collect();
+        paths.push(self.live_path());
+
+        for path in paths {
             // Append mode: the handle is writable on every platform, which
             // `sync_all` requires on Windows, and it never changes the file.
-            match OpenOptions::new()
-                .append(true)
-                .open(self.scenario_path(scenario))
-            {
+            match OpenOptions::new().append(true).open(path) {
                 Ok(file) => file.sync_all()?,
                 Err(error) if error.kind() == io::ErrorKind::NotFound => {}
                 Err(error) => return Err(error),
@@ -251,6 +267,15 @@ mod tests {
         observation("node-01", scenario)
     }
 
+    fn live_observation(node_id: &str) -> Observation {
+        Observation::new(
+            node_id,
+            None,
+            Duration::from_secs(5),
+            ComponentMetrics::empty(Component::Geth),
+        )
+    }
+
     fn read(path: &Path) -> String {
         fs::read_to_string(path).unwrap()
     }
@@ -293,6 +318,56 @@ mod tests {
         assert_eq!(
             storage.dataset_path(&create_observation(Scenario::RpcFlooding)),
             dir.path().join("rpc_flooding.jsonl")
+        );
+    }
+
+    #[test]
+    fn unlabelled_observations_use_the_live_dataset() {
+        let dir = TempDir::new("live-path");
+        let storage = JsonlStorage::new(dir.path()).unwrap();
+        let observation = live_observation("node-live-01");
+
+        assert_eq!(
+            storage.dataset_path(&observation),
+            dir.path().join("live_observations.jsonl")
+        );
+    }
+
+    #[test]
+    fn appends_unlabelled_observations_without_scenario_key() {
+        let dir = TempDir::new("live-append");
+        let storage = JsonlStorage::new(dir.path()).unwrap();
+        let observation = live_observation("node-live-01");
+
+        storage.append(&observation).unwrap();
+
+        let path = dir.path().join("live_observations.jsonl");
+        let content = read(&path);
+        assert_eq!(content.lines().count(), 1);
+
+        let value: Value = serde_json::from_str(content.trim()).unwrap();
+        assert!(value.get("scenario").is_none());
+        assert_eq!(value["node_id"], "node-live-01");
+        assert_eq!(value["component"], "geth");
+
+        let decoded: Observation = serde_json::from_str(content.trim()).unwrap();
+        assert_eq!(decoded.scenario, None);
+    }
+
+    #[test]
+    fn training_and_live_observations_are_stored_separately() {
+        let dir = TempDir::new("training-live");
+        let storage = JsonlStorage::new(dir.path()).unwrap();
+
+        storage.append(&create_observation(Scenario::Normal)).unwrap();
+        storage.append(&live_observation("node-live-01")).unwrap();
+
+        assert!(dir.path().join("normal.jsonl").exists());
+        assert!(dir.path().join("live_observations.jsonl").exists());
+        assert_eq!(read(&dir.path().join("normal.jsonl")).lines().count(), 1);
+        assert_eq!(
+            read(&dir.path().join("live_observations.jsonl")).lines().count(),
+            1
         );
     }
 
@@ -349,7 +424,7 @@ mod tests {
 
         assert_eq!(decoded, observation);
         assert_eq!(decoded.node_id, "node-01");
-        assert_eq!(decoded.scenario, Scenario::Normal);
+        assert_eq!(decoded.scenario, Some(Scenario::Normal));
         assert_eq!(decoded.collection_interval, 5);
     }
 
@@ -434,7 +509,7 @@ mod tests {
             let decoded: Observation = serde_json::from_str(content.trim()).unwrap();
 
             assert_eq!(content.lines().count(), 1);
-            assert_eq!(decoded.scenario, scenario);
+            assert_eq!(decoded.scenario, Some(scenario));
         }
 
         let files = fs::read_dir(dir.path()).unwrap().count();
@@ -859,6 +934,7 @@ mod tests {
         storage
             .append(&create_observation(Scenario::Eclipse))
             .unwrap();
+        storage.append(&live_observation("node-live-01")).unwrap();
 
         let before = read(&data.join("normal.jsonl"));
 
@@ -867,6 +943,10 @@ mod tests {
         // Flushing never changes the data.
         assert_eq!(read(&data.join("normal.jsonl")), before);
         assert_eq!(read(&data.join("eclipse.jsonl")).lines().count(), 1);
+        assert_eq!(
+            read(&data.join("live_observations.jsonl")).lines().count(),
+            1
+        );
         assert!(!data.join("rpc_flooding.jsonl").exists());
 
         // Data directory gone: nothing to flush, not an error.

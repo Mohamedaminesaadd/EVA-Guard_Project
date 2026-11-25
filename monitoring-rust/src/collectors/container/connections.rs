@@ -145,15 +145,21 @@ mod tests {
         let v2 = proc_with_cgroup(42, "0::/system.slice/docker-abc123def.scope\n");
         let v1 = proc_with_cgroup(43, "12:pids:/docker/abc123def\n11:cpu:/docker/abc123def\n");
 
-        assert!(ConnectionsCollector::pid_belongs_to_container(v2.path(), 42, "abc123def").unwrap());
-        assert!(ConnectionsCollector::pid_belongs_to_container(v1.path(), 43, "abc123def").unwrap());
+        assert!(
+            ConnectionsCollector::pid_belongs_to_container(v2.path(), 42, "abc123def").unwrap()
+        );
+        assert!(
+            ConnectionsCollector::pid_belongs_to_container(v1.path(), 43, "abc123def").unwrap()
+        );
     }
 
     #[test]
     fn a_reused_pid_of_another_cgroup_does_not_belong_to_it() {
         let root = proc_with_cgroup(42, "0::/user.slice/user-1000.slice/session-2.scope\n");
 
-        assert!(!ConnectionsCollector::pid_belongs_to_container(root.path(), 42, "abc123def").unwrap());
+        assert!(
+            !ConnectionsCollector::pid_belongs_to_container(root.path(), 42, "abc123def").unwrap()
+        );
     }
 
     #[test]

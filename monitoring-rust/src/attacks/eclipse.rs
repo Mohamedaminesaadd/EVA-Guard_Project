@@ -70,7 +70,11 @@ impl EclipseAttack {
     /// One disconnection round: drops every current peer. Returns
     /// `(removed, errors)`.
     async fn round(&self) -> (u64, u64) {
-        let peers = match self.client.call::<Vec<AdminPeer>>("admin_peers", vec![]).await {
+        let peers = match self
+            .client
+            .call::<Vec<AdminPeer>>("admin_peers", vec![])
+            .await
+        {
             Ok(result) => result.value,
             Err(error) => {
                 tracing::warn!(
@@ -97,7 +101,11 @@ impl EclipseAttack {
                 errors += 1;
             }
 
-            if peer.network.and_then(|network| network.trusted).unwrap_or(false) {
+            if peer
+                .network
+                .and_then(|network| network.trusted)
+                .unwrap_or(false)
+            {
                 // A trusted peer is re-dialed unless it is also untrusted.
                 let _ = self.remove(&enode, "admin_removeTrustedPeer").await;
             }
@@ -255,7 +263,8 @@ mod tests {
     #[tokio::test]
     async fn runs_rounds_until_cancelled_then_reports() {
         let (server, removals) = mock_geth(2).await;
-        let attack = StdArc::new(attack(&server.uri()).with_round_interval(Duration::from_millis(40)));
+        let attack =
+            StdArc::new(attack(&server.uri()).with_round_interval(Duration::from_millis(40)));
 
         let (cancel_tx, cancel_rx) = oneshot::channel();
         let handle = tokio::spawn(StdArc::clone(&attack).run(cancel_rx));

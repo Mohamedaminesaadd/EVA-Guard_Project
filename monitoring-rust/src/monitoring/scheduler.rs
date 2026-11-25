@@ -1,42 +1,3 @@
-//! Collection scheduler: drives the monitoring cycles of every node and
-//! hands the observations to the storage.
-//!
-//! # One cycle
-//!
-//! ```text
-//! tick (every `collection_interval`, on a fixed grid)
-//!   ├─ one task per node ─────────────► NodeSource::collect  (12 collectors, in parallel)
-//!   ├─ one cross-node task ───────────► PropagationCollector (heads of ALL Beacon Nodes)
-//!   │      barrier: wait for all of them, at most `cycle` (90 % of the interval)
-//!   ├─ merge the propagation into each node's Beacon metrics
-//!   └─ 3 observations per node ───────► ObservationSink::append (JSONL)
-//! ```
-//!
-//! # Guarantees
-//!
-//! - **Fixed grid.** Ticks are `start + k * interval`, whatever the duration
-//!   of a cycle (`MissedTickBehavior::Skip`): a slow cycle never shifts the
-//!   following ones.
-//! - **Bounded cycle.** A collector is cut after 80 % of the interval (see
-//!   `NodeCollector`), the whole cycle after 90 %. A node that did not
-//!   finish gets an observation where every metric is `None`: the row
-//!   exists, the measurement does not.
-//! - **Isolation.** Nodes run in separate Tokio tasks. A node that hangs or
-//!   panics cannot delay or corrupt the others.
-//! - **Shared timestamp.** All the observations of a cycle carry the same
-//!   *nominal* time `anchor + k * interval` (whole seconds), not the moment
-//!   each task happened to finish, so the rows of a cycle can be joined and
-//!   consecutive cycles are exactly one interval apart.
-//! - **No stale sample.** A tick delivered more than half an interval late
-//!   (process suspended, runtime blocked) is dropped instead of measured: the
-//!   data would be dated to a moment that is already gone. The dataset has a
-//!   gap, not a wrong point.
-//! - **Graceful stop.** When the shutdown future completes, the cycle in
-//!   flight is discarded (never half written) and the storage is flushed.
-//!
-//! Writing a cycle (15 lines of about 1 KB) is done directly in the loop:
-//! it is a handful of small `write` calls, and it keeps the cycle atomic with
-//! respect to shutdown, because no `.await` separates two writes.
 
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
@@ -151,7 +112,8 @@ pub struct RunReport {
 pub struct Scheduler<S> {
     sources: Vec<Arc<dyn NodeSource>>,
     sink: S,
-    scenario: Scenario,
+    /// `Some(scenario)` for labelled training; `None` for live detection.
+    scenario: Option<Scenario>,
     interval: Duration,
     budget: CycleBudget,
 }
@@ -161,7 +123,7 @@ impl<S: ObservationSink> Scheduler<S> {
     pub fn new(
         sources: Vec<Arc<dyn NodeSource>>,
         sink: S,
-        scenario: Scenario,
+        scenario: impl Into<Option<Scenario>>,
         interval: Duration,
     ) -> Result<Self, SchedulerError> {
         if sources.is_empty() {
@@ -180,6 +142,8 @@ impl<S: ObservationSink> Scheduler<S> {
             return Err(SchedulerError::IntervalTooShort(interval));
         }
 
+        let scenario = scenario.into();
+
         Ok(Self {
             sources,
             sink,
@@ -197,7 +161,7 @@ impl<S: ObservationSink> Scheduler<S> {
     /// with `null` system metrics (and says so).
     pub fn from_config(
         config: &NodesConfig,
-        scenario: Scenario,
+        scenario: impl Into<Option<Scenario>>,
         sink: S,
     ) -> Result<Self, SchedulerError> {
         let docker = match DockerClient::new() {
@@ -219,7 +183,7 @@ impl<S: ObservationSink> Scheduler<S> {
     /// is shared by every node.
     pub fn from_config_with_docker(
         config: &NodesConfig,
-        scenario: Scenario,
+        scenario: impl Into<Option<Scenario>>,
         sink: S,
         docker: Option<DockerClient>,
     ) -> Result<Self, SchedulerError> {
@@ -311,7 +275,7 @@ impl<S: ObservationSink> Scheduler<S> {
         tracing::info!(
             nodes = self.sources.len(),
             interval_secs = self.interval.as_secs(),
-            scenario = %self.scenario,
+            scenario = ?self.scenario,
             "scheduler started"
         );
 
@@ -367,7 +331,9 @@ impl<S: ObservationSink> Scheduler<S> {
         let mut first_error: Option<JsonlStorageError> = None;
 
         for snapshot in outcome.snapshots {
-            for observation in snapshot.into_observations(timestamp, self.scenario, self.interval) {
+            for observation in
+                snapshot.into_observations(timestamp, self.scenario, self.interval)
+            {
                 match self.sink.append(&observation) {
                     Ok(()) => report.observations_written += 1,
                     Err(error) => {
@@ -880,12 +846,38 @@ metrics_url = "http://127.0.0.1:{}/metrics"
             ]
         );
         assert!(written.iter().all(|o| o.timestamp == at(0)));
-        assert!(written.iter().all(|o| o.scenario == Scenario::Normal));
+        assert!(written.iter().all(|o| o.scenario == Some(Scenario::Normal)));
         assert!(written.iter().all(|o| o.collection_interval == 5));
         assert_eq!(report.cycles_completed, 1);
         assert_eq!(report.observations_written, 6);
         assert_eq!(report.write_failures, 0);
         assert_eq!(report.nodes_unmeasured, 0);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn live_mode_writes_observations_without_scenario_label() {
+        let node = FakeSource::new("node-01", Behavior::Answer(Duration::ZERO));
+        let sink = MemorySink::default();
+
+        let scheduler = Scheduler::new(
+            sources(&[&node]),
+            sink.clone(),
+            None,
+            INTERVAL,
+        )
+        .unwrap();
+
+        let report = run_for(scheduler, Duration::from_secs(1)).await;
+        let written = sink.observations();
+
+        assert_eq!(report.cycles_completed, 1);
+        assert_eq!(written.len(), 3);
+        assert!(written.iter().all(|observation| observation.scenario.is_none()));
+
+        for observation in written {
+            let value = serde_json::to_value(observation).unwrap();
+            assert!(value.get("scenario").is_none());
+        }
     }
 
     #[tokio::test(start_paused = true)]
@@ -1367,7 +1359,7 @@ metrics_url = "http://127.0.0.1:{}/metrics"
             ]
         );
         assert!(parsed.iter().all(|o| o.timestamp == anchor()));
-        assert!(parsed.iter().all(|o| o.scenario == Scenario::RpcFlooding));
+        assert!(parsed.iter().all(|o| o.scenario == Some(Scenario::RpcFlooding)));
         assert!(parsed.iter().all(|o| o.collection_interval == 5));
 
         let geth: serde_json::Value = serde_json::from_str(&lines[0]).unwrap();
