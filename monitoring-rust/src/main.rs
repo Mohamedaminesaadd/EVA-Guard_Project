@@ -5,6 +5,11 @@
 //! - `monitoring-rust --campaign` runs NORMAL, then ECLIPSE, then
 //!   RPC_FLOODING back to back, applying and undoing each attack, and writes
 //!   the three datasets in one run (`EVA_SCENARIO` is ignored).
+//! - `monitoring-rust --campaign --sessions N` runs the whole
+//!   NORMAL → ECLIPSE → RPC_FLOODING sequence N times. Each session is written
+//!   to its own `sessionX` sub-directory (`data/session1`, `data/session2`, …)
+//!   so the sessions stay separate. With one session (the default) the datasets
+//!   stay directly in `EVA_DATA_DIR`, exactly as before.
 //! - `monitoring-rust --check` only checks that every endpoint answers, then
 //!   exits (status 1 if one fails).
 //!
@@ -89,7 +94,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     }
 
     if cli.campaign {
-        return run_campaign(&config, data_dir).await;
+        return run_campaign(&config, data_dir, cli.sessions).await;
     }
 
     // 3. Open the dataset storage
@@ -129,89 +134,158 @@ async fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-/// Runs the full scenario campaign (NORMAL → ECLIPSE → RPC_FLOODING).
-async fn run_campaign(config: &NodesConfig, data_dir: PathBuf) -> Result<(), Box<dyn Error>> {
-    let campaign = Campaign::from_env(config, data_dir.clone())?;
+/// Runs the full scenario campaign (NORMAL → ECLIPSE → RPC_FLOODING) once per
+/// session. With more than one session each session writes to its own
+/// `sessionX` sub-directory of `data_dir`; a single session writes to
+/// `data_dir` directly (unchanged behaviour). A Ctrl+C / SIGTERM during any
+/// session stops the whole run instead of starting the next session.
+async fn run_campaign(
+    config: &NodesConfig,
+    data_dir: PathBuf,
+    sessions: usize,
+) -> Result<(), Box<dyn Error>> {
+    for session in 1..=sessions {
+        let session_dir = if sessions == 1 {
+            data_dir.clone()
+        } else {
+            data_dir.join(format!("session{session}"))
+        };
+        std::fs::create_dir_all(&session_dir)?;
 
-    println!("[3] Scenario campaign");
-    println!("Datasets:  {}", data_dir.display());
-    println!("Victim:    {}", campaign.target());
-    println!(
-        "Per phase: {:?}  (cooldown {:?})",
-        campaign.phase_duration(),
-        campaign.cooldown()
-    );
-    let plan: Vec<&str> = campaign
-        .scenarios()
-        .iter()
-        .map(|scenario| scenario.as_str())
-        .collect();
-    println!("Sequence:  {}", plan.join(" → "));
+        let campaign = Campaign::from_env(config, session_dir.clone())?;
 
-    println!("\n========================================");
-    println!("       SCENARIO CAMPAIGN");
-    println!("========================================");
-    println!("Running the three phases. Press Ctrl+C to stop early.\n");
+        if sessions > 1 {
+            println!("\n########################################");
+            println!("  SESSION {session} / {sessions}");
+            println!("########################################");
+        }
 
-    let report = campaign.run(shutdown_signal()).await;
+        println!("[3] Scenario campaign");
+        println!("Datasets:  {}", session_dir.display());
+        println!("Victim:    {}", campaign.target());
+        println!(
+            "Per phase: {:?}  (cooldown {:?})",
+            campaign.phase_duration(),
+            campaign.cooldown()
+        );
+        let plan: Vec<&str> = campaign
+            .scenarios()
+            .iter()
+            .map(|scenario| scenario.as_str())
+            .collect();
+        println!("Sequence:  {}", plan.join(" → "));
 
-    println!("\n========================================");
-    println!("       CAMPAIGN FINISHED");
-    println!("========================================");
-    for phase in &report.phases {
-        match (&phase.run, &phase.skipped) {
-            (Some(run), _) => {
-                let attack = match &phase.attack {
-                    Some(attack) => {
-                        format!(" | attack actions={} errors={}", attack.actions, attack.errors)
-                    }
-                    None => String::new(),
-                };
-                println!(
-                    "{:<13} cycles={:<3} observations={:<4}{}{}",
-                    phase.scenario.as_str(),
-                    run.cycles_completed,
-                    run.observations_written,
-                    attack,
-                    if phase.interrupted { " (interrupted)" } else { "" },
-                );
+        println!("\n========================================");
+        println!("       SCENARIO CAMPAIGN");
+        println!("========================================");
+        println!("Running the three phases. Press Ctrl+C to stop early.\n");
+
+        let report = campaign.run(shutdown_signal()).await;
+
+        println!("\n========================================");
+        println!("       CAMPAIGN FINISHED");
+        println!("========================================");
+        for phase in &report.phases {
+            match (&phase.run, &phase.skipped) {
+                (Some(run), _) => {
+                    let attack = match &phase.attack {
+                        Some(attack) => {
+                            format!(" | attack actions={} errors={}", attack.actions, attack.errors)
+                        }
+                        None => String::new(),
+                    };
+                    println!(
+                        "{:<13} cycles={:<3} observations={:<4}{}{}",
+                        phase.scenario.as_str(),
+                        run.cycles_completed,
+                        run.observations_written,
+                        attack,
+                        if phase.interrupted { " (interrupted)" } else { "" },
+                    );
+                }
+                (None, Some(reason)) => {
+                    println!("{:<13} SKIPPED: {reason}", phase.scenario.as_str());
+                }
+                (None, None) => {}
             }
-            (None, Some(reason)) => {
-                println!("{:<13} SKIPPED: {reason}", phase.scenario.as_str());
+        }
+
+        // A signal during a session stops the whole run, not just this session.
+        if report.phases.iter().any(|phase| phase.interrupted) {
+            if session < sessions {
+                println!("\nRun interrupted — stopping before the remaining sessions.");
             }
-            (None, None) => {}
+            break;
         }
     }
 
     Ok(())
 }
 
-/// Parsed command line. `--check` and `--campaign` are the only options;
-/// anything else is refused rather than ignored.
-#[derive(Debug, Default, PartialEq, Eq)]
+/// Parsed command line. `--check`, `--campaign` and `--sessions N` are the only
+/// options; anything else is refused rather than ignored.
+#[derive(Debug, PartialEq, Eq)]
 struct Cli {
     check_only: bool,
     campaign: bool,
+    sessions: usize,
+}
+
+impl Default for Cli {
+    fn default() -> Self {
+        Cli {
+            check_only: false,
+            campaign: false,
+            sessions: 1,
+        }
+    }
 }
 
 impl Cli {
     fn from_args(args: impl Iterator<Item = String>) -> Result<Self, Box<dyn Error>> {
         let mut cli = Cli::default();
+        let mut sessions_seen = false;
+        let mut args = args;
 
-        for arg in args {
+        while let Some(arg) = args.next() {
             match arg.as_str() {
                 "--check" => cli.check_only = true,
                 "--campaign" => cli.campaign = true,
+                "--sessions" => {
+                    let value = args
+                        .next()
+                        .ok_or("--sessions needs a number, e.g. --sessions 3")?;
+                    cli.sessions = parse_sessions(&value)?;
+                    sessions_seen = true;
+                }
+                other if other.starts_with("--sessions=") => {
+                    cli.sessions = parse_sessions(&other["--sessions=".len()..])?;
+                    sessions_seen = true;
+                }
                 other => {
                     return Err(format!(
-                        "unknown argument `{other}` (only --check and --campaign exist)"
+                        "unknown argument `{other}` \
+                         (only --check, --campaign and --sessions exist)"
                     )
                     .into())
                 }
             }
         }
 
+        if sessions_seen && !cli.campaign {
+            return Err("--sessions only works with --campaign".into());
+        }
+
         Ok(cli)
+    }
+}
+
+/// `--sessions N`: a whole number, at least 1.
+fn parse_sessions(value: &str) -> Result<usize, Box<dyn Error>> {
+    match value.parse::<usize>() {
+        Ok(count) if count >= 1 => Ok(count),
+        Ok(_) => Err("--sessions must be at least 1".into()),
+        Err(_) => Err(format!("--sessions needs a whole number, got `{value}`").into()),
     }
 }
 
@@ -279,7 +353,8 @@ mod tests {
             Cli::from_args(args(&["--check"])).unwrap(),
             Cli {
                 check_only: true,
-                campaign: false
+                campaign: false,
+                sessions: 1,
             }
         );
     }
@@ -290,9 +365,45 @@ mod tests {
             Cli::from_args(args(&["--campaign"])).unwrap(),
             Cli {
                 check_only: false,
-                campaign: true
+                campaign: true,
+                sessions: 1,
             }
         );
+    }
+
+    #[test]
+    fn a_campaign_defaults_to_one_session() {
+        assert_eq!(Cli::from_args(args(&["--campaign"])).unwrap().sessions, 1);
+    }
+
+    #[test]
+    fn sessions_sets_the_count() {
+        assert_eq!(
+            Cli::from_args(args(&["--campaign", "--sessions", "3"])).unwrap(),
+            Cli {
+                check_only: false,
+                campaign: true,
+                sessions: 3,
+            }
+        );
+        assert_eq!(
+            Cli::from_args(args(&["--campaign", "--sessions=5"]))
+                .unwrap()
+                .sessions,
+            5
+        );
+    }
+
+    #[test]
+    fn sessions_requires_the_campaign() {
+        assert!(Cli::from_args(args(&["--sessions", "3"])).is_err());
+    }
+
+    #[test]
+    fn sessions_must_be_a_positive_whole_number() {
+        assert!(Cli::from_args(args(&["--campaign", "--sessions", "0"])).is_err());
+        assert!(Cli::from_args(args(&["--campaign", "--sessions", "two"])).is_err());
+        assert!(Cli::from_args(args(&["--campaign", "--sessions"])).is_err());
     }
 
     #[test]

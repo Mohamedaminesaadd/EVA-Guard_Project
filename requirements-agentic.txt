@@ -1,0 +1,42 @@
+
+# LLM and orchestration
+langchain
+langchain-core
+langchain-community
+langchain-ollama
+langgraph
+
+# Embeddings
+langchain-huggingface
+sentence-transformers
+transformers
+
+# Vector database
+chromadb
+langchain-chroma
+
+# Document processing
+pypdf
+beautifulsoup4
+requests
+
+# API
+fastapi
+uvicorn[standard]
+
+# Configuration and utilities
+python-dotenv
+pydantic
+pandas
+numpy
+tqdm
+
+
+langchain-core
+langchain-community
+langchain-text-splitters
+langchain-ollama
+langchain-chroma
+chromadb
+pypdf
+beautifulsoup4

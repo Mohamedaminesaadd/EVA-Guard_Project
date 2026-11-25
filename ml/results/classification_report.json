@@ -1,0 +1,33 @@
+{
+    "ECLIPSE": {
+        "precision": 0.994475138121547,
+        "recall": 1.0,
+        "f1-score": 0.997229916897507,
+        "support": 180.0
+    },
+    "NORMAL": {
+        "precision": 0.9700598802395209,
+        "recall": 0.9,
+        "f1-score": 0.9337175792507204,
+        "support": 180.0
+    },
+    "RPC_FLOODING": {
+        "precision": 0.90625,
+        "recall": 0.9666666666666667,
+        "f1-score": 0.9354838709677419,
+        "support": 180.0
+    },
+    "accuracy": 0.9555555555555556,
+    "macro avg": {
+        "precision": 0.9569283394536893,
+        "recall": 0.9555555555555556,
+        "f1-score": 0.9554771223719897,
+        "support": 540.0
+    },
+    "weighted avg": {
+        "precision": 0.9569283394536894,
+        "recall": 0.9555555555555556,
+        "f1-score": 0.9554771223719898,
+        "support": 540.0
+    }
+}
