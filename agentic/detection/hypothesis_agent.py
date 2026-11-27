@@ -1,10 +1,16 @@
 
+import os
 import asyncio
 import json
 import logging
 
+from pathlib import Path
+from dotenv import load_dotenv
+
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser
+from langchain_openai import ChatOpenAI
+
 from langchain_ollama import ChatOllama
 
 from knowledge_base.retrieval.query_engine import KnowledgeQueryEngine
@@ -29,37 +35,76 @@ class HypothesisAgent:
 
     def __init__(
         self,
-        model: str = "qwen2.5:14b",
+        model: str = "deepseek-chat",
         base_url: str = "http://localhost:11434",
-        top_k: int = 5
+        top_k: int = 5,
+        rag_model: str = "qwen2.5:14b"
     ):
 
-        logger.info("Initializing Hypothesis Agent")
+        logger.info("Initializing Hypothesis Agent with DeepSeek")
 
-        self.llm = ChatOllama(
+        # ==========================================
+        # LOAD ROOT ENVIRONMENT
+        # ==========================================
+
+        project_root = Path(__file__).resolve().parents[2]
+
+        load_dotenv(project_root / ".env")
+
+        api_key = os.getenv("token_deepseek")
+
+        if not api_key:
+            raise ValueError(
+                "token_deepseek not found in root .env file"
+            )
+
+        # ==========================================
+        # DEEPSEEK LLM
+        # ==========================================
+
+        self.llm = ChatOpenAI(
             model=model,
-            base_url=base_url,
-            temperature=0.1
+            api_key=api_key,
+            base_url="https://api.deepseek.com",
+            temperature=0.1,
+            max_retries=3,
+            timeout=60
         )
 
+        # ==========================================
+        # RAG
+        # ==========================================
+
+        # Keep the existing RAG implementation.
+        # Its internal LLM remains Ollama until
+        # query_engine.py is migrated separately.
+
         self.rag = KnowledgeQueryEngine(
-            model=model,
+            model=rag_model,
             base_url=base_url,
             top_k=top_k
         )
 
         self.top_k = top_k
 
+        # ==========================================
+        # OUTPUT PARSER
+        # ==========================================
+
         self.parser = PydanticOutputParser(
             pydantic_object=Hypothesis
         )
+
+        # ==========================================
+        # PROMPT
+        # ==========================================
 
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", SYSTEM_PROMPT),
             ("human", USER_PROMPT)
         ])
 
-        logger.info("Hypothesis Agent initialized")
+        logger.info("Hypothesis Agent initialized with DeepSeek")
 
     # --------------------------------------------------
     # METRIC EXTRACTION
@@ -285,13 +330,22 @@ class HypothesisAgent:
             incident.incident_id
         )
 
-        # STEP 1: Analyze monitoring metrics
+        # ==========================================
+        # STEP 1: ANALYZE MONITORING METRICS
+        # ==========================================
 
         metric_evidence = self._analyze_metrics(
             incident
         )
 
-        # STEP 2: Retrieve technical knowledge
+        logger.info(
+            "Extracted %s monitoring metrics",
+            len(metric_evidence)
+        )
+
+        # ==========================================
+        # STEP 2: RETRIEVE TECHNICAL KNOWLEDGE
+        # ==========================================
 
         rag_result = await self._retrieve_knowledge(
             incident
@@ -301,7 +355,9 @@ class HypothesisAgent:
             rag_result.get("sources", [])
         )
 
-        # STEP 3: Prepare investigation context
+        # ==========================================
+        # STEP 3: PREPARE INVESTIGATION CONTEXT
+        # ==========================================
 
         context = {
             "incident_id": incident.incident_id,
@@ -311,12 +367,15 @@ class HypothesisAgent:
             "attack_type": incident.attack_type.value,
             "probabilities": incident.probabilities,
             "observation_snapshot": incident.observation_snapshot,
+
             "metric_evidence": [
                 item.model_dump()
                 for item in metric_evidence
             ],
+
             "rag_question": rag_result.get("question", ""),
             "rag_answer": rag_result.get("answer", ""),
+
             "rag_sources": [
                 item.model_dump()
                 for item in rag_sources
@@ -328,22 +387,26 @@ class HypothesisAgent:
 
             "observation_snapshot": json.dumps(
                 context["observation_snapshot"],
-                indent=2
+                indent=2,
+                default=str
             ),
 
             "probabilities": json.dumps(
                 context["probabilities"],
-                indent=2
+                indent=2,
+                default=str
             ),
 
             "metric_evidence": json.dumps(
                 context["metric_evidence"],
-                indent=2
+                indent=2,
+                default=str
             ),
 
             "rag_sources": json.dumps(
                 context["rag_sources"],
-                indent=2
+                indent=2,
+                default=str
             ),
 
             "format_instructions": (
@@ -355,9 +418,11 @@ class HypothesisAgent:
             **prompt_context
         )
 
-        # STEP 4: Generate structured hypothesis
+        # ==========================================
+        # STEP 4: GENERATE STRUCTURED HYPOTHESIS
+        # ==========================================
 
-        logger.info("Generating hypothesis with Qwen")
+        logger.info("Generating hypothesis with DeepSeek")
 
         response = await self.llm.ainvoke(messages)
 
@@ -365,7 +430,9 @@ class HypothesisAgent:
             str(response.content)
         )
 
-        # STEP 5: Verify incident identity
+        # ==========================================
+        # STEP 5: VERIFY INCIDENT IDENTITY
+        # ==========================================
 
         if hypothesis.incident_id != incident.incident_id:
 
@@ -379,7 +446,9 @@ class HypothesisAgent:
                 "Generated hypothesis attack type mismatch"
             )
 
-        # STEP 6: Validate metric evidence
+        # ==========================================
+        # STEP 6: VALIDATE METRIC EVIDENCE
+        # ==========================================
 
         hypothesis.supporting_evidence = (
             self._validate_evidence(
@@ -395,7 +464,9 @@ class HypothesisAgent:
             )
         )
 
-        # STEP 7: Attach actual RAG sources
+        # ==========================================
+        # STEP 7: ATTACH ACTUAL RAG SOURCES
+        # ==========================================
 
         hypothesis.rag_sources = rag_sources
 

@@ -1,7 +1,6 @@
 
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional
-
 import math
 
 from .config import (
@@ -13,8 +12,8 @@ from .config import (
 
 class FeatureBuilder:
     """
-    Reproduces the temporal and interaction feature
-    engineering used during model training.
+    Reproduces the temporal and interaction feature engineering
+    used during model training.
 
     Maintains independent temporal history for each node.
     """
@@ -46,13 +45,13 @@ class FeatureBuilder:
 
     def __init__(self):
 
-        self.raw_features = FEATURE_CONFIG["features"]
+        self.raw_features = list(FEATURE_CONFIG["features"])
+        self.feature_columns = list(FEATURE_COLUMNS)
 
-        self.feature_columns = FEATURE_COLUMNS
-
-        self.max_interval = FEATURE_ENGINEERING_CONFIG.get(
-            "segmentation_threshold_seconds",
-            10
+        self.max_interval = float(
+            FEATURE_ENGINEERING_CONFIG.get(
+                "segmentation_threshold_seconds", 10
+            )
         )
 
         self.history = {}
@@ -67,8 +66,66 @@ class FeatureBuilder:
                 f"Expected 69 model features, got {len(self.feature_columns)}"
             )
 
+        if self.max_interval <= 0:
+            raise ValueError(
+                "segmentation_threshold_seconds must be positive."
+            )
+
+        if len(set(self.raw_features)) != len(self.raw_features):
+            raise ValueError("Duplicate raw feature names detected.")
+
+        if len(set(self.feature_columns)) != len(self.feature_columns):
+            raise ValueError("Duplicate model feature names detected.")
+
+        missing_raw = [
+            column for column in self.raw_features
+            if column not in self.feature_columns
+        ]
+
+        if missing_raw:
+            raise ValueError(
+                f"Raw features missing from model features: {missing_raw}"
+            )
+
+        expected_temporal = []
+
+        for column in self.COUNTER_COLUMNS:
+            expected_temporal.extend([
+                f"{column}_delta",
+                f"{column}_rate"
+            ])
+
+        for column in self.GAUGE_COLUMNS:
+            expected_temporal.extend([
+                f"{column}_delta",
+                f"{column}_change_per_sec"
+            ])
+
+        missing_temporal = [
+            column for column in expected_temporal
+            if column not in self.feature_columns
+        ]
+
+        if missing_temporal:
+            raise ValueError(
+                f"Missing temporal model features: {missing_temporal}"
+            )
+
+        print("[FEATURE BUILDER] Initialized")
+        print(f"[FEATURE BUILDER] Raw features: {len(self.raw_features)}")
+        print(f"[FEATURE BUILDER] Model features: {len(self.feature_columns)}")
+        print(f"[FEATURE BUILDER] Max interval: {self.max_interval}s")
+
+    # =====================================================
+    # VALUE CONVERSION
+    # =====================================================
+
     @staticmethod
     def _to_float(value: Any) -> float:
+        """
+        Convert a value to a finite float.
+        Invalid or missing values become NaN.
+        """
 
         if value is None:
             return math.nan
@@ -87,26 +144,55 @@ class FeatureBuilder:
         except (TypeError, ValueError):
             return math.nan
 
+    # =====================================================
+    # TIMESTAMP
+    # =====================================================
+
     @staticmethod
-    def _parse_timestamp(timestamp: str) -> datetime:
+    def _parse_timestamp(timestamp: Any) -> datetime:
+        """
+        Parse ISO-8601 timestamps and normalize to UTC.
+        """
 
         if not timestamp:
             raise ValueError("Timestamp is missing.")
 
-        dt = datetime.fromisoformat(
-            timestamp.replace("Z", "+00:00")
-        )
+        if isinstance(timestamp, datetime):
+            dt = timestamp
+
+        elif isinstance(timestamp, (int, float)):
+            dt = datetime.fromtimestamp(
+                timestamp,
+                tz=timezone.utc
+            )
+
+        elif isinstance(timestamp, str):
+            dt = datetime.fromisoformat(
+                timestamp.replace("Z", "+00:00")
+            )
+
+        else:
+            raise ValueError(
+                f"Unsupported timestamp type: {type(timestamp).__name__}"
+            )
 
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=timezone.utc)
 
         return dt.astimezone(timezone.utc)
 
+    # =====================================================
+    # TEMPORAL CALCULATIONS
+    # =====================================================
+
     @staticmethod
     def _safe_delta(
         current: float,
         previous: Optional[float]
     ) -> float:
+        """
+        Calculate the difference between two finite values.
+        """
 
         if previous is None:
             return math.nan
@@ -119,11 +205,17 @@ class FeatureBuilder:
 
         return current - previous
 
-    @staticmethod
     def _safe_rate(
+        self,
         delta: float,
         interval: Optional[float]
     ) -> float:
+        """
+        Calculate a per-second rate.
+
+        The interval must be positive and within the configured
+        segmentation threshold.
+        """
 
         if interval is None:
             return math.nan
@@ -131,7 +223,10 @@ class FeatureBuilder:
         if not math.isfinite(delta):
             return math.nan
 
-        if not 0 < interval < 10:
+        if not math.isfinite(interval):
+            return math.nan
+
+        if not 0 < interval <= self.max_interval:
             return math.nan
 
         return delta / interval
@@ -141,6 +236,9 @@ class FeatureBuilder:
         numerator: float,
         denominator: float
     ) -> float:
+        """
+        Safely divide two finite values.
+        """
 
         if not math.isfinite(numerator):
             return math.nan
@@ -153,13 +251,59 @@ class FeatureBuilder:
 
         return numerator / denominator
 
+    # =====================================================
+    # RAW FEATURE VALIDATION
+    # =====================================================
+
+    def _validate_raw_features(
+        self,
+        raw: Dict[str, float],
+        node_id: str
+    ):
+        """
+        Validate raw feature availability.
+        """
+
+        finite_count = sum(
+            math.isfinite(value)
+            for value in raw.values()
+        )
+
+        if finite_count == 0:
+            raise ValueError(
+                f"No valid raw features for node {node_id}. "
+                "Check RustAdapter field mapping."
+            )
+
+        missing = [
+            column
+            for column, value in raw.items()
+            if not math.isfinite(value)
+        ]
+
+        if missing:
+            print(
+                f"[FEATURE BUILDER WARNING] Node={node_id} | "
+                f"Missing {len(missing)}/{len(raw)} raw features: "
+                f"{missing}"
+            )
+
+        return finite_count
+
+    # =====================================================
+    # FEATURE BUILDING
+    # =====================================================
+
     def build(
         self,
         observation: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
-        Build exactly 69 features for one node observation.
+        Build exactly 69 model features for one node observation.
         """
+
+        if not isinstance(observation, dict):
+            raise TypeError("Observation must be a dictionary.")
 
         node_id = observation.get("node_id")
 
@@ -170,15 +314,28 @@ class FeatureBuilder:
             observation.get("timestamp")
         )
 
-        # Extract and normalize the 26 raw features.
-        raw = {}
+        node_id = str(node_id)
 
-        for column in self.raw_features:
-            raw[column] = self._to_float(
+        # -------------------------------------------------
+        # 1. Extract and normalize the 26 raw features.
+        # -------------------------------------------------
+
+        raw = {
+            column: self._to_float(
                 observation.get(column)
             )
+            for column in self.raw_features
+        }
 
-        # Get the previous state for this node.
+        finite_count = self._validate_raw_features(
+            raw,
+            node_id
+        )
+
+        # -------------------------------------------------
+        # 2. Retrieve previous state for this node only.
+        # -------------------------------------------------
+
         previous_state = self.history.get(node_id)
 
         interval = None
@@ -195,18 +352,32 @@ class FeatureBuilder:
                 or interval > self.max_interval
             )
 
-        # Initialize all 69 model features.
+            if new_segment:
+                print(
+                    f"[FEATURE BUILDER] New temporal segment "
+                    f"for {node_id} | interval={interval:.3f}s"
+                )
+
+        # -------------------------------------------------
+        # 3. Initialize all 69 model features.
+        # -------------------------------------------------
+
         features = {
             column: math.nan
             for column in self.feature_columns
         }
 
-        # 1. Raw features.
-        for column in self.raw_features:
-            if column in features:
-                features[column] = raw[column]
+        # -------------------------------------------------
+        # 4. Raw features.
+        # -------------------------------------------------
 
-        # 2. Temporal features.
+        for column in self.raw_features:
+            features[column] = raw[column]
+
+        # -------------------------------------------------
+        # 5. Temporal features.
+        # -------------------------------------------------
+
         if not new_segment:
 
             previous_raw = previous_state["raw"]
@@ -214,8 +385,8 @@ class FeatureBuilder:
             # Cumulative counters.
             for column in self.COUNTER_COLUMNS:
 
-                current = raw[column]
-                previous = previous_raw[column]
+                current = raw.get(column, math.nan)
+                previous = previous_raw.get(column, math.nan)
 
                 delta = self._safe_delta(
                     current,
@@ -226,74 +397,100 @@ class FeatureBuilder:
                 if math.isfinite(delta) and delta < 0:
                     delta = math.nan
 
-                features[f"{column}_delta"] = delta
+                delta_column = f"{column}_delta"
+                rate_column = f"{column}_rate"
 
-                features[f"{column}_rate"] = (
-                    self._safe_rate(delta, interval)
+                features[delta_column] = delta
+
+                features[rate_column] = self._safe_rate(
+                    delta,
+                    interval
                 )
 
             # Instantaneous measurements.
             for column in self.GAUGE_COLUMNS:
 
-                current = raw[column]
-                previous = previous_raw[column]
+                current = raw.get(column, math.nan)
+                previous = previous_raw.get(column, math.nan)
 
                 delta = self._safe_delta(
                     current,
                     previous
                 )
 
-                features[f"{column}_delta"] = delta
+                delta_column = f"{column}_delta"
+                rate_column = f"{column}_change_per_sec"
 
-                features[f"{column}_change_per_sec"] = (
-                    self._safe_rate(delta, interval)
+                features[delta_column] = delta
+
+                features[rate_column] = self._safe_rate(
+                    delta,
+                    interval
                 )
 
-        # 3. Interaction features.
-        features["rpc_requests_per_peer"] = (
-            self._safe_divide(
-                raw["geth_rpc_requests_per_sec"],
-                raw["geth_peer_count"]
+        # -------------------------------------------------
+        # 6. Interaction features.
+        # -------------------------------------------------
+
+        interactions = {
+            "rpc_requests_per_peer": self._safe_divide(
+                raw.get("geth_rpc_requests_per_sec", math.nan),
+                raw.get("geth_peer_count", math.nan)
+            ),
+
+            "tcp_connections_per_peer": self._safe_divide(
+                raw.get("system_tcp_established_connections", math.nan),
+                raw.get("geth_peer_count", math.nan)
+            ),
+
+            "network_rx_tx_ratio": self._safe_divide(
+                raw.get("system_network_rx_bytes_per_sec", math.nan),
+                raw.get("system_network_tx_bytes_per_sec", math.nan)
+            ),
+
+            "peer_churn_ratio": self._safe_divide(
+                raw.get("geth_peer_churn_count", math.nan),
+                raw.get("geth_peer_count", math.nan)
             )
+        }
+
+        rpc_rate = raw.get(
+            "geth_rpc_requests_per_sec",
+            math.nan
         )
 
-        features["tcp_connections_per_peer"] = (
-            self._safe_divide(
-                raw["system_tcp_established_connections"],
-                raw["geth_peer_count"]
-            )
-        )
-
-        features["network_rx_tx_ratio"] = (
-            self._safe_divide(
-                raw["system_network_rx_bytes_per_sec"],
-                raw["system_network_tx_bytes_per_sec"]
-            )
+        rpc_latency = raw.get(
+            "geth_rpc_latency_ms",
+            math.nan
         )
 
         if (
-            math.isfinite(raw["geth_rpc_requests_per_sec"])
-            and math.isfinite(raw["geth_rpc_latency_ms"])
+            math.isfinite(rpc_rate)
+            and math.isfinite(rpc_latency)
         ):
-            features["rpc_load_latency_interaction"] = (
-                raw["geth_rpc_requests_per_sec"]
-                * raw["geth_rpc_latency_ms"]
+            interactions["rpc_load_latency_interaction"] = (
+                rpc_rate * rpc_latency
             )
+        else:
+            interactions["rpc_load_latency_interaction"] = math.nan
 
-        features["peer_churn_ratio"] = (
-            self._safe_divide(
-                raw["geth_peer_churn_count"],
-                raw["geth_peer_count"]
-            )
-        )
+        for column, value in interactions.items():
+            if column in features:
+                features[column] = value
 
-        # Update temporal history independently for each node.
+        # -------------------------------------------------
+        # 7. Update independent temporal history per node.
+        # -------------------------------------------------
+
         self.history[node_id] = {
             "timestamp": timestamp,
-            "raw": raw
+            "raw": raw.copy()
         }
 
-        # Return features in the exact model order.
+        # -------------------------------------------------
+        # 8. Return features in exact model order.
+        # -------------------------------------------------
+
         result = {
             column: features[column]
             for column in self.feature_columns
@@ -304,16 +501,50 @@ class FeatureBuilder:
                 f"Invalid feature count: {len(result)}"
             )
 
+        valid_model_features = sum(
+            math.isfinite(value)
+            for value in result.values()
+        )
+
+        missing_model_features = [
+            column
+            for column, value in result.items()
+            if not math.isfinite(value)
+        ]
+
+        print(
+            f"[FEATURE BUILDER] Node={node_id} | "
+            f"Raw={finite_count}/26 | "
+            f"Model={valid_model_features}/69 | "
+            f"RPC rate={raw.get('geth_rpc_requests_per_sec')} | "
+            f"Peers={raw.get('geth_peer_count')}"
+        )
+
+        if missing_model_features:
+            print(
+                f"[FEATURE BUILDER WARNING] "
+                f"Missing model features: {missing_model_features}"
+            )
+
         return result
 
-    def reset_node(self, node_id: str):
+    # =====================================================
+    # HISTORY MANAGEMENT
+    # =====================================================
 
-        self.history.pop(node_id, None)
+    def reset_node(self, node_id: str):
+        """
+        Reset temporal history for one node.
+        """
+
+        self.history.pop(str(node_id), None)
 
     def reset(self):
+        """
+        Reset temporal history for all nodes.
+        """
 
         self.history.clear()
 
     def get_feature_columns(self):
-
         return self.feature_columns.copy()

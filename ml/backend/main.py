@@ -2,6 +2,7 @@
 import asyncio
 import json
 import logging
+import time
 
 from collections import OrderedDict, deque
 from contextlib import asynccontextmanager
@@ -57,6 +58,12 @@ latest_predictions = {}
 
 active_attack_by_node = {}
 
+# Consecutive ML detections required before starting an AI investigation.
+attack_detection_streak = {}
+
+# Last successful enqueue time, keyed by (node_id, attack_type).
+last_agent_invocation = {}
+
 # Read-only views exposed to the frontend (populated after ML inference,
 # never consulted by the detection or incident logic).
 latest_observations = {}
@@ -76,6 +83,10 @@ orchestrator_unavailable_logged = False
 POLL_INTERVAL = 0.25
 
 ALERT_CONFIDENCE_THRESHOLD = 0.60
+
+# AI agents are invoked only after consecutive detections and cooldown.
+REQUIRED_CONSECUTIVE_DETECTIONS = 2
+AGENT_COOLDOWN_SECONDS = 180  # 3 minutes
 
 INVESTIGATION_QUEUE_SIZE = 100
 
@@ -406,98 +417,108 @@ def create_incident(
     return incident
 
 
-def enqueue_incident(
-    prediction,
-    observation_snapshot
-):
+def enqueue_incident(prediction, observation_snapshot):
+    """
+    Queue an AI investigation only when the same attack has been
+    detected consecutively enough times and its per-node/per-attack
+    cooldown has expired. ML inference itself is never delayed.
+    """
 
     global orchestrator_unavailable_logged
 
     node_id = prediction["node_id"]
-
     attack_name = prediction["prediction"]
+    confidence = float(prediction["confidence"])
 
-    confidence = prediction["confidence"]
-
-    # --------------------------------------------------------
-    # Clear active attack when node returns to NORMAL.
-    # --------------------------------------------------------
-
+    # 1. A normal prediction or low confidence breaks the consecutive streak.
     if (
         attack_name == "NORMAL"
         or confidence < ALERT_CONFIDENCE_THRESHOLD
     ):
-
-        active_attack_by_node.pop(
-            node_id,
-            None
-        )
-
+        attack_detection_streak.pop(node_id, None)
+        active_attack_by_node.pop(node_id, None)
         return
 
-    # --------------------------------------------------------
-    # Avoid duplicate investigations.
-    # --------------------------------------------------------
+    # 2. Count consecutive detections of the same attack for this node.
+    previous = attack_detection_streak.get(node_id)
 
-    if active_attack_by_node.get(node_id) == attack_name:
-        return
+    if previous is not None and previous["attack_type"] == attack_name:
+        previous["count"] += 1
+    else:
+        attack_detection_streak[node_id] = {
+            "attack_type": attack_name,
+            "count": 1,
+        }
 
-    # --------------------------------------------------------
-    # Check LangGraph availability.
-    # --------------------------------------------------------
+    detection_count = attack_detection_streak[node_id]["count"]
 
-    if orchestrator is None or investigation_queue is None:
-
-        if not orchestrator_unavailable_logged:
-
-            logger.warning(
-                "LangGraph unavailable. "
-                "ML predictions continue without investigations."
-            )
-
-            orchestrator_unavailable_logged = True
-
-        return
-
-    # --------------------------------------------------------
-    # Create incident.
-    # --------------------------------------------------------
-
-    incident = create_incident(
-        prediction,
-        observation_snapshot
+    logger.info(
+        "[ATTACK DETECTION] Node=%s | Attack=%s | Consecutive=%d/%d",
+        node_id,
+        attack_name,
+        detection_count,
+        REQUIRED_CONSECUTIVE_DETECTIONS,
     )
 
+    if detection_count < REQUIRED_CONSECUTIVE_DETECTIONS:
+        return
+
+    # 3. Do not enqueue if the agent system is unavailable.
+    if orchestrator is None or investigation_queue is None:
+        if not orchestrator_unavailable_logged:
+            logger.warning(
+                "LangGraph unavailable. ML predictions continue "
+                "without AI investigations."
+            )
+            orchestrator_unavailable_logged = True
+        return
+
+    # 4. Apply an independent 3-minute cooldown for each node + attack type.
+    investigation_key = (node_id, attack_name)
+    now = time.monotonic()
+    last_invocation = last_agent_invocation.get(investigation_key)
+
+    if last_invocation is not None:
+        elapsed = now - last_invocation
+        if elapsed < AGENT_COOLDOWN_SECONDS:
+            remaining = AGENT_COOLDOWN_SECONDS - elapsed
+            logger.info(
+                "[AGENT COOLDOWN] Node=%s | Attack=%s | "
+                "Next investigation in %.1f seconds",
+                node_id,
+                attack_name,
+                remaining,
+            )
+            return
+
+    # 5. Create and enqueue the incident.
+    incident = create_incident(prediction, observation_snapshot)
     if incident is None:
         return
 
-    # --------------------------------------------------------
-    # Add incident to asynchronous queue.
-    # --------------------------------------------------------
-
     try:
-
         investigation_queue.put_nowait(incident)
-
-        active_attack_by_node[node_id] = attack_name
-
-        register_incident(incident)
-
-        logger.warning(
-            "Incident queued | ID=%s | Node=%s | Attack=%s | Confidence=%.4f",
-            incident.incident_id,
-            node_id,
-            attack_name,
-            confidence
-        )
-
     except asyncio.QueueFull:
-
         logger.error(
-            "Investigation queue full. "
-            "Incident not queued for node %s",
-            node_id
+            "Investigation queue full. Incident not queued for node %s",
+            node_id,
         )
+        return
+
+    # Start cooldown only after successful insertion into the queue.
+    last_agent_invocation[investigation_key] = now
+    active_attack_by_node[node_id] = attack_name
+    register_incident(incident)
+
+    logger.warning(
+        "[AGENT INVESTIGATION QUEUED] Incident=%s | Node=%s | "
+        "Attack=%s | Confidence=%.4f | Cooldown=%ds",
+        incident.incident_id,
+        node_id,
+        attack_name,
+        confidence,
+        AGENT_COOLDOWN_SECONDS,
+    )
 
 
 # ============================================================
