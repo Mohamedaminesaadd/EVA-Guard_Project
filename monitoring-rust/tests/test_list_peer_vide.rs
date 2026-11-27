@@ -1,4 +1,3 @@
-
 use monitoring_rust::config::Config;
 use monitoring_rust::geth::client::GethClient;
 use monitoring_rust::monitoring::scheduler::MonitoringScheduler;
@@ -49,16 +48,12 @@ async fn read_request(socket: &mut TcpStream) -> String {
         buffer.extend_from_slice(&chunk[..n]);
     }
 
-    String::from_utf8(buffer[header_end..header_end + content_length].to_vec())
-        .unwrap()
+    String::from_utf8(buffer[header_end..header_end + content_length].to_vec()).unwrap()
 }
 
 // Start a fake Geth server with an empty peer list.
-async fn spawn_fake_geth_empty_peers(
-) -> (String, tokio::task::JoinHandle<()>) {
-    let listener = TcpListener::bind("127.0.0.1:0")
-        .await
-        .unwrap();
+async fn spawn_fake_geth_empty_peers() -> (String, tokio::task::JoinHandle<()>) {
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
 
     let address = listener.local_addr().unwrap();
     let rpc_url = format!("http://{}", address);
@@ -70,12 +65,9 @@ async fn spawn_fake_geth_empty_peers(
             tokio::spawn(async move {
                 let body = read_request(&mut socket).await;
 
-                let rpc_request: Value =
-                    serde_json::from_str(&body).unwrap();
+                let rpc_request: Value = serde_json::from_str(&body).unwrap();
 
-                let method = rpc_request["method"]
-                    .as_str()
-                    .unwrap();
+                let method = rpc_request["method"].as_str().unwrap();
 
                 let id = rpc_request["id"].clone();
 
@@ -123,10 +115,7 @@ async fn spawn_fake_geth_empty_peers(
                     response_body
                 );
 
-                socket
-                    .write_all(http_response.as_bytes())
-                    .await
-                    .unwrap();
+                socket.write_all(http_response.as_bytes()).await.unwrap();
             });
         }
     });
@@ -155,12 +144,8 @@ async fn scheduler_handles_empty_peer_list() {
 
     let client = GethClient::new(&config).unwrap();
 
-    let mut scheduler = MonitoringScheduler::new(
-        &client,
-        &config,
-        "test-node".to_string(),
-    )
-    .unwrap();
+    let mut scheduler =
+        MonitoringScheduler::new(&client, &config, "test-node".to_string()).unwrap();
 
     let observation = scheduler.collect_once().await.unwrap();
 
@@ -172,10 +157,7 @@ async fn scheduler_handles_empty_peer_list() {
     assert_eq!(observation.p2p.admin_peer_count, Some(0));
 
     // The admin namespace is available and returned an empty list.
-    assert_eq!(
-        observation.p2p.peer_details_available,
-        Some(true)
-    );
+    assert_eq!(observation.p2p.peer_details_available, Some(true));
 
     // First collection: no previous sample for comparison.
     assert_eq!(observation.p2p.new_peers, None);

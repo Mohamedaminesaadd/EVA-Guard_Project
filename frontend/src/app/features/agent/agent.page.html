@@ -1,0 +1,310 @@
+<div class="ws" [class.left-open]="leftOpen()" [class.right-open]="rightOpen()">
+  <!-- ================================================================ LEFT -->
+  <aside class="ws__left" aria-label="Investigations">
+    <div class="ws__left-top">
+      <button class="btn btn--primary new-btn" type="button" (click)="newInvestigation()">
+        <app-icon name="plus" [size]="15" /> New investigation
+      </button>
+    </div>
+
+    <div class="ws__scroll">
+      @if (saved().length) {
+        <div class="side-title"><app-icon name="bookmark-check" [size]="12" /> Saved investigations</div>
+        <ul class="inv-list">
+          @for (i of saved(); track i.id) {
+            <li>
+              <button type="button" class="inv" [class.is-active]="active()?.id === i.id" (click)="openInvestigation(i)">
+                <app-icon name="bookmark" [size]="13" />
+                <span class="inv__title">{{ i.title }}</span>
+                <span class="inv__time mono">{{ i.updatedAt | ago: clock.now() }}</span>
+              </button>
+            </li>
+          }
+        </ul>
+      }
+
+      <div class="side-title"><app-icon name="history" [size]="12" /> Conversation history</div>
+      @if (history().length) {
+        <ul class="inv-list">
+          @for (i of history(); track i.id) {
+            <li class="inv-row">
+              <button type="button" class="inv" [class.is-active]="active()?.id === i.id" (click)="openInvestigation(i)">
+                <app-icon name="message-square" [size]="13" />
+                <span class="inv__title">{{ i.title }}</span>
+                <span class="inv__time mono">{{ i.updatedAt | ago: clock.now() }}</span>
+              </button>
+              <button type="button" class="inv__del" (click)="agent.remove(i.id)" [attr.aria-label]="'Delete ' + i.title" data-tip="Delete" data-tip-pos="left">
+                <app-icon name="trash" [size]="12" />
+              </button>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="side-empty">No conversation yet.</p>
+      }
+
+      <div class="side-title"><app-icon name="shield-exclamation-point" [size]="12" /> Recent security incidents</div>
+      @if (recentIncidents().length) {
+        <ul class="inc-list">
+          @for (a of recentIncidents(); track a.id) {
+            <li>
+              <button type="button" class="inc sev-{{ a.severity }}" (click)="investigateIncident(a)" [attr.aria-label]="'Investigate ' + a.id">
+                <span class="inc__bar"></span>
+                <span class="inc__main">
+                  <span class="inc__title">{{ attackLabel[a.attack_type] }}</span>
+                  <span class="inc__meta mono">{{ a.node_id }} · {{ a.timestamp | ago: clock.now() }}</span>
+                </span>
+                <app-icon name="arrow-right" [size]="12" />
+              </button>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="side-empty">No open incident.</p>
+      }
+    </div>
+  </aside>
+
+  <!-- ================================================================ MAIN -->
+  <section class="ws__main" aria-label="Conversation">
+    <header class="chat-head">
+      <button class="btn btn--ghost btn--icon only-narrow" type="button" (click)="leftOpen.set(!leftOpen())" aria-label="Investigations">
+        <app-icon name="history" [size]="16" />
+      </button>
+      <span class="agent-avatar agent-avatar--lg"><app-icon name="bot" [size]="18" /></span>
+      <div class="chat-head__id">
+        <div class="chat-head__name">{{ profile.name }}</div>
+        <div class="chat-head__desc">{{ profile.description }}</div>
+      </div>
+      <span class="conn tone-{{ connection().tone }}">
+        <app-icon [name]="connection().icon" [size]="12" />{{ connection().label }}
+      </span>
+      @if (active(); as inv) {
+        <button class="btn btn--ghost btn--icon" type="button" (click)="agent.toggleSaved(inv.id)" [attr.aria-pressed]="inv.saved" [attr.data-tip]="inv.saved ? 'Unsave' : 'Save investigation'" data-tip-pos="bottom">
+          <app-icon [name]="inv.saved ? 'bookmark-check' : 'bookmark'" [size]="16" />
+        </button>
+      }
+      <button class="btn btn--ghost btn--icon only-mid" type="button" (click)="rightOpen.set(!rightOpen())" aria-label="Investigation context">
+        <app-icon name="panel-right" [size]="16" />
+      </button>
+    </header>
+
+    @if (agent.connection() === 'not-configured') {
+      <div class="banner tone-offline conn-banner">
+        <app-icon name="unplug" [size]="15" />
+        <span>
+          <strong>AI agent backend not connected.</strong> No agent endpoint exists yet — set <code>agentEndpoint</code> in
+          <code>environment.ts</code> once FastAPI exposes it. You can preview the interface with illustrative mock responses.
+        </span>
+        <span class="banner__actions"><button class="btn btn--sm" type="button" (click)="enableMock()">Enable mock mode</button></span>
+      </div>
+    } @else if (agent.connection() === 'mock') {
+      <div class="banner tone-warning conn-banner">
+        <app-icon name="flask-conical" [size]="15" />
+        <span><strong>Mock mode.</strong> Responses are illustrative UI examples, not actual analysis results.</span>
+        <span class="banner__actions"><button class="btn btn--sm btn--ghost" type="button" (click)="settings.agentMockMode.set(false)">Disable</button></span>
+      </div>
+    }
+
+    <div class="thread" #thread aria-live="polite">
+      @if (messages().length === 0) {
+        <div class="welcome">
+          <span class="agent-avatar agent-avatar--xl"><app-icon name="bot" [size]="26" /></span>
+          <h2>How can I help with your investigation?</h2>
+          <p>
+            Ask about node health, ML detections or alerts.
+            @if (contextNodeId()) {
+              Context: <span class="mono">{{ contextNodeId() }}</span>.
+            }
+          </p>
+          <div class="prompt-grid">
+            @for (p of prompts; track p) {
+              <button type="button" class="prompt-card" (click)="usePrompt(p)" [disabled]="agent.pending()">
+                <app-icon name="sparkles" [size]="14" />
+                <span>{{ p }}</span>
+              </button>
+            }
+          </div>
+        </div>
+      }
+
+      @for (m of messages(); track m.id) {
+        @if (m.role === 'user') {
+          <div class="msg msg--user">
+            <div class="msg__bubble">{{ m.content }}</div>
+          </div>
+        } @else {
+          <div class="msg msg--agent" [class.msg--system]="m.role === 'system'">
+            <span class="agent-avatar" [class.agent-avatar--muted]="m.role === 'system'">
+              <app-icon [name]="m.role === 'system' ? 'info' : 'bot'" [size]="14" />
+            </span>
+            <div class="msg__body">
+              <div class="msg__meta">
+                <strong>{{ m.role === 'system' ? 'System' : profile.name }}</strong>
+                <span class="mono">{{ m.createdAt | ago: clock.now() }}</span>
+                @if (m.mock) {
+                  <span class="pill pill--demo">mock · illustrative</span>
+                }
+                @if (m.role === 'agent') {
+                  <button class="btn btn--ghost btn--icon btn--sm msg__copy" type="button" (click)="copy(m.content)" data-tip="Copy" aria-label="Copy message">
+                    <app-icon name="copy" [size]="12" />
+                  </button>
+                }
+              </div>
+              <div class="md" [innerHTML]="m.content | markdown"></div>
+
+              @if (m.analysis; as a) {
+                <div class="analysis tone-{{ a.severity === 'critical' ? 'critical' : a.severity === 'high' ? 'high' : 'warning' }}">
+                  <div class="analysis__head">
+                    <app-icon name="scan-search" [size]="15" />
+                    <strong>Threat analysis</strong>
+                    @if (m.mock) {
+                      <span class="analysis__note">example layout</span>
+                    }
+                  </div>
+                  <div class="analysis__grid">
+                    <div><span>Attack type</span><app-status-badge kind="attack" [value]="a.attackType" /></div>
+                    <div><span>Node</span><b class="mono">{{ a.nodeId }}</b></div>
+                    <div><span>Confidence</span><b class="mono">{{ a.confidence | pct }}</b></div>
+                    <div><span>Severity</span><app-status-badge kind="severity" [value]="a.severity" /></div>
+                  </div>
+                  <div class="analysis__cols">
+                    <div>
+                      <h4><app-icon name="list-filter" [size]="12" /> Evidence</h4>
+                      <ul>
+                        @for (e of a.evidence; track e) {
+                          <li>{{ e }}</li>
+                        }
+                      </ul>
+                    </div>
+                    <div>
+                      <h4><app-icon name="crosshair" [size]="12" /> Recommended investigation</h4>
+                      <ul>
+                        @for (r of a.recommendations; track r) {
+                          <li [innerHTML]="r | markdown"></li>
+                        }
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+          </div>
+        }
+      }
+
+      @if (agent.pending()) {
+        <div class="msg msg--agent">
+          <span class="agent-avatar"><app-icon name="bot" [size]="14" /></span>
+          <div class="typing" role="status"><span></span><span></span><span></span> <em>EVA is analyzing…</em></div>
+        </div>
+      }
+    </div>
+
+    <footer class="composer">
+      @if (messages().length > 0) {
+        <div class="chips">
+          @for (p of prompts; track p) {
+            <button type="button" class="chip" (click)="usePrompt(p)" [disabled]="agent.pending()">{{ p }}</button>
+          }
+        </div>
+      }
+      <div class="composer__box">
+        <textarea
+          #input
+          class="composer__input"
+          rows="2"
+          placeholder="Ask EVA about a node, an alert or an attack pattern…"
+          aria-label="Message"
+          [value]="draft()"
+          (input)="draft.set($any($event.target).value)"
+          (keydown)="onKey($event)"
+        ></textarea>
+        <div class="composer__bar">
+          <span class="composer__ctx">
+            <app-icon name="crosshair" [size]="12" />
+            Context: <span class="mono">{{ contextNodeId() ?? 'whole network' }}</span>
+          </span>
+          <span class="composer__hint"><kbd>Enter</kbd> send · <kbd>Shift</kbd>+<kbd>Enter</kbd> new line</span>
+          <button class="btn btn--primary" type="button" (click)="send()" [disabled]="!draft().trim() || agent.pending()">
+            <app-icon name="send" [size]="14" /> Send
+          </button>
+        </div>
+      </div>
+    </footer>
+  </section>
+
+  <!-- ================================================================ RIGHT -->
+  <aside class="ws__right" aria-label="Investigation context">
+    <div class="ctx-head">
+      <strong>Investigation context</strong>
+      <button class="btn btn--ghost btn--icon btn--sm only-mid" type="button" (click)="rightOpen.set(false)" aria-label="Close context">
+        <app-icon name="x" [size]="14" />
+      </button>
+    </div>
+    <div class="ws__scroll ctx">
+      <div class="field">
+        <label for="ctx-node">Selected Ethereum node</label>
+        <select id="ctx-node" class="select" [value]="contextNodeId() ?? ''" (change)="setContextNode($any($event.target).value)">
+          <option value="">Whole network</option>
+          @for (n of nodes(); track n.node_id) {
+            <option [value]="n.node_id">{{ n.node_id }}</option>
+          }
+        </select>
+      </div>
+
+      @if (contextNode(); as n) {
+        <div class="ctx-card">
+          <div class="row row--between">
+            <a class="mono ctx-node" [routerLink]="['/nodes', n.node_id]">{{ n.node_id }}</a>
+            <app-status-badge kind="health" [value]="n.status" />
+          </div>
+          <div class="ctx-label">Current threat</div>
+          @if (n.latest_prediction; as p) {
+            <div class="row row--between">
+              <app-status-badge kind="attack" [value]="p.prediction" />
+              <span class="mono ctx-ago">{{ p.timestamp | ago: clock.now() }}</span>
+            </div>
+            <div class="ctx-label">ML confidence</div>
+            <app-confidence [value]="p.confidence" [label]="p.prediction" />
+            <app-prob-bar [probabilities]="p.probabilities" />
+          } @else {
+            <span class="na">No prediction</span>
+          }
+        </div>
+
+        <div class="ctx-section">Relevant metrics</div>
+        <dl class="kv ctx-kv">
+          <dt>CPU</dt><dd class="mono">{{ n.metrics.cpu_usage_percent | percent100 }}</dd>
+          <dt>Memory</dt><dd class="mono">{{ n.metrics.memory_used_mb | mb }}</dd>
+          <dt>Peers</dt><dd class="mono">{{ n.metrics.peer_count | num }}</dd>
+          <dt>Peer churn</dt><dd class="mono">{{ n.metrics.peer_churn_count | num }}</dd>
+          <dt>RPC rate</dt><dd class="mono">{{ n.metrics.rpc_requests_per_sec | num: 1 }} req/s</dd>
+          <dt>RPC latency</dt><dd class="mono">{{ n.metrics.rpc_latency_ms | ms }}</dd>
+          <dt>Sync distance</dt><dd class="mono">{{ n.metrics.sync_distance | num }}</dd>
+        </dl>
+      } @else {
+        <p class="side-empty">Select a node to attach its live metrics and latest ML prediction to the conversation.</p>
+      }
+
+      <div class="ctx-section">Related alerts</div>
+      @if (relatedAlerts().length) {
+        <ul class="ctx-alerts">
+          @for (a of relatedAlerts(); track a.id) {
+            <li>
+              <app-status-badge kind="severity" [value]="a.severity" />
+              <span class="ctx-alerts__type">{{ attackLabel[a.attack_type] }}</span>
+              <span class="mono subtle">{{ a.timestamp | ago: clock.now() }}</span>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="side-empty">No related alert.</p>
+      }
+    </div>
+  </aside>
+
+  @if (leftOpen() || rightOpen()) {
+    <div class="ws__scrim" (click)="leftOpen.set(false); rightOpen.set(false)"></div>
+  }
+</div>

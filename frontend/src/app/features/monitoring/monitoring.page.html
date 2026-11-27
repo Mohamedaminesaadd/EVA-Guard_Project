@@ -1,0 +1,164 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Network Monitoring</h1>
+      <p class="page-header__sub">Infrastructure and Ethereum client metrics for every monitored node.</p>
+    </div>
+    <div class="page-header__actions">
+      <app-live-indicator [res]="nodes()" [paused]="paused()" />
+      <button class="btn" type="button" (click)="togglePause()" [attr.aria-pressed]="paused()">
+        <app-icon [name]="paused() ? 'play' : 'pause'" [size]="14" />
+        {{ paused() ? 'Resume' : 'Pause' }}
+      </button>
+      <button class="btn btn--icon" type="button" (click)="refresh()" data-tip="Refresh now" aria-label="Refresh now">
+        <app-icon name="refresh-cw" [size]="14" />
+      </button>
+    </div>
+  </header>
+
+  <!-- Controls -->
+  <div class="toolbar">
+    <span class="toolbar__label">Range</span>
+    <app-time-range-selector [(value)]="range" />
+    <span class="toolbar__divider"></span>
+    <span class="toolbar__label">Metrics</span>
+    <div class="segmented" role="radiogroup" aria-label="Metric group">
+      @for (g of groups; track g.value) {
+        <button type="button" role="radio" [class.is-active]="group() === g.value" [attr.aria-checked]="group() === g.value" (click)="group.set(g.value)">
+          {{ g.label }}
+        </button>
+      }
+    </div>
+    <span class="toolbar__divider"></span>
+    <span class="toolbar__label">Nodes</span>
+    <div class="node-chips">
+      <button type="button" class="chip" [class.is-active]="selected().size === 0" (click)="clearNodes()">All</button>
+      @for (id of allNodeIds(); track id) {
+        <button type="button" class="chip mono" [class.is-active]="selected().has(id)" (click)="toggleNode(id)" [attr.aria-pressed]="selected().has(id)">
+          <span class="swatch" [style.background]="nodeColor(id)"></span>{{ id }}
+        </button>
+      }
+    </div>
+    <span class="spacer"></span>
+    <span class="refresh-note mono">
+      <app-icon name="refresh-cw" [size]="12" />
+      {{ paused() ? 'paused' : 'every ' + settings.pollingIntervalMs() / 1000 + 's' }}
+    </span>
+  </div>
+
+  @if (coverage(); as c) {
+    @if (c.lagging) {
+      <div class="banner tone-warning">
+        <app-icon name="clock" [size]="15" />
+        <span><strong>Observation timestamps are behind the wall clock</strong> (replayed dataset?). Charts are anchored on the latest observation instead of now.</span>
+      </div>
+    } @else if (c.partial) {
+      <div class="banner tone-info">
+        <app-icon name="info" [size]="15" />
+        <span>{{ c.text }} The selected range is only partially covered — the backend has no historical metrics endpoint yet.</span>
+      </div>
+    }
+  }
+
+  <!-- Node overview -->
+  <section class="card">
+    <div class="card__header">
+      <div class="card__title"><app-icon name="layout-grid" [size]="15" /> Node overview</div>
+      <span class="card__subtitle">Click a node to focus the charts</span>
+    </div>
+    <app-state [res]="nodes()" [empty]="allNodeIds().length === 0" emptyTitle="No nodes reported" emptyIcon="server">
+      <div class="hostmap">
+        @for (n of nodes().data ?? []; track n.node_id) {
+          <div class="host tone-{{ n.status === 'healthy' ? 'success' : n.status === 'critical' ? 'critical' : n.status === 'warning' ? 'warning' : 'offline' }}" [class.is-dim]="!isSelected(n.node_id)">
+            <button type="button" class="host__main" (click)="focusNode(n.node_id)" [attr.aria-label]="'Focus ' + n.node_id">
+              <div class="host__head">
+                <span class="swatch" [style.background]="nodeColor(n.node_id)"></span>
+                <span class="host__id mono">{{ n.node_id }}</span>
+                <app-status-badge kind="health" [value]="n.status" />
+              </div>
+              <div class="host__metrics">
+                <div><span>CPU</span><b class="mono">{{ n.metrics.cpu_usage_percent | percent100: 0 }}</b></div>
+                <div><span>Mem</span><b class="mono">{{ n.metrics.memory_used_mb | mb }}</b></div>
+                <div><span>Peers</span><b class="mono">{{ n.metrics.peer_count | num }}</b></div>
+                <div><span>RPC</span><b class="mono">{{ n.metrics.rpc_latency_ms | ms }}</b></div>
+              </div>
+              <div class="host__ml">
+                @if (n.latest_prediction) {
+                  <app-status-badge kind="attack" [value]="n.latest_prediction.prediction" />
+                } @else {
+                  <span class="subtle">No prediction</span>
+                }
+              </div>
+            </button>
+            <a class="host__link" [routerLink]="['/nodes', n.node_id]" [attr.aria-label]="'Open ' + n.node_id + ' details'" data-tip="Node details">
+              <app-icon name="external-link" [size]="12" />
+            </a>
+          </div>
+        }
+      </div>
+    </app-state>
+  </section>
+
+  <!-- Infrastructure metrics -->
+  @if (infraCharts().length) {
+    <h2 class="section-title"><app-icon name="hard-drive" [size]="14" /> Infrastructure metrics</h2>
+    <section class="grid chart-grid">
+      @for (c of infraCharts(); track c.def.key) {
+        <app-chart-card [title]="c.def.title" [unit]="c.def.unit" [icon]="c.def.icon ?? null" [height]="190" [empty]="c.empty" emptyTitle="Not reported" [emptyMessage]="'No ' + c.def.key + ' values in this range.'">
+          <div [appEchart]="c.options"></div>
+        </app-chart-card>
+      }
+    </section>
+  }
+
+  <!-- Geth -->
+  @if (show('geth')) {
+    <h2 class="section-title"><app-icon name="blocks" [size]="14" /> Geth · execution client</h2>
+    <section class="grid-kpi cards-dense">
+      @for (c of gethCards(); track c.def.key) {
+        <app-metric-card [label]="c.def.title" [value]="c.value" [unit]="c.def.unit" [description]="c.def.hint ?? ''" [badge]="c.badge" [compact]="true" />
+      }
+    </section>
+    <section class="grid grid-2">
+      @for (c of gethCharts(); track c.def.key) {
+        <app-chart-card [title]="c.def.title" [unit]="c.def.unit" [height]="170" [empty]="c.empty" emptyTitle="Not reported">
+          <div [appEchart]="c.options"></div>
+        </app-chart-card>
+      }
+    </section>
+  }
+
+  <!-- Beacon -->
+  @if (show('beacon')) {
+    <h2 class="section-title"><app-icon name="radar" [size]="14" /> Beacon · Lighthouse consensus client</h2>
+    <section class="grid-kpi cards-dense">
+      @for (c of beaconCards(); track c.def.key) {
+        <app-metric-card [label]="c.def.title" [value]="c.value" [unit]="c.def.unit" [description]="c.def.hint ?? ''" [badge]="c.badge" [compact]="true" />
+      }
+    </section>
+    <section class="grid grid-2">
+      @for (c of beaconCharts(); track c.def.key) {
+        <app-chart-card [title]="c.def.title" [unit]="c.def.unit" [height]="170" [empty]="c.empty" emptyTitle="Not reported">
+          <div [appEchart]="c.options"></div>
+        </app-chart-card>
+      }
+    </section>
+  }
+
+  <!-- Validator -->
+  @if (show('validator')) {
+    <h2 class="section-title"><app-icon name="shield-check" [size]="14" /> Validator · Lighthouse VC</h2>
+    <section class="grid validator-row">
+      <div class="grid-kpi cards-dense">
+        @for (c of validatorCards(); track c.def.key) {
+          <app-metric-card [label]="c.def.title" [value]="c.value" [unit]="c.def.unit" [description]="c.def.hint ?? ''" [badge]="c.badge" [compact]="true" />
+        }
+      </div>
+      @for (c of validatorCharts(); track c.def.key) {
+        <app-chart-card [title]="c.def.title" [unit]="c.def.unit" [height]="150" [empty]="c.empty" emptyTitle="Not reported">
+          <div [appEchart]="c.options"></div>
+        </app-chart-card>
+      }
+    </section>
+  }
+</div>

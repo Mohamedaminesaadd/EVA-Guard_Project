@@ -1,0 +1,78 @@
+
+[settings]
+request_timeout_secs = 3
+collection_interval_secs = 5
+
+[[nodes]]
+id = "node-01"
+
+[nodes.geth]
+rpc_url = "http://127.0.0.1:32769"
+metrics_url = "http://127.0.0.1:32772/debug/metrics/prometheus"
+
+[nodes.beacon]
+api_url = "http://127.0.0.1:32794"
+metrics_url = "http://127.0.0.1:32795/metrics"
+
+[nodes.validator]
+metrics_url = "http://127.0.0.1:32811/metrics"
+
+
+[[nodes]]
+id = "node-02"
+
+[nodes.geth]
+rpc_url = "http://127.0.0.1:32779"
+metrics_url = "http://127.0.0.1:32782/debug/metrics/prometheus"
+
+[nodes.beacon]
+api_url = "http://127.0.0.1:32806"
+metrics_url = "http://127.0.0.1:32807/metrics"
+
+[nodes.validator]
+metrics_url = "http://127.0.0.1:32812/metrics"
+
+
+[[nodes]]
+id = "node-03"
+
+[nodes.geth]
+rpc_url = "http://127.0.0.1:32784"
+metrics_url = "http://127.0.0.1:32787/debug/metrics/prometheus"
+
+[nodes.beacon]
+api_url = "http://127.0.0.1:32800"
+metrics_url = "http://127.0.0.1:32801/metrics"
+
+[nodes.validator]
+metrics_url = "http://127.0.0.1:32809/metrics"
+
+
+[[nodes]]
+id = "node-04"
+
+[nodes.geth]
+rpc_url = "http://127.0.0.1:32774"
+metrics_url = "http://127.0.0.1:32777/debug/metrics/prometheus"
+
+[nodes.beacon]
+api_url = "http://127.0.0.1:32797"
+metrics_url = "http://127.0.0.1:32798/metrics"
+
+[nodes.validator]
+metrics_url = "http://127.0.0.1:32813/metrics"
+
+
+[[nodes]]
+id = "node-05"
+
+[nodes.geth]
+rpc_url = "http://127.0.0.1:32789"
+metrics_url = "http://127.0.0.1:32792/debug/metrics/prometheus"
+
+[nodes.beacon]
+api_url = "http://127.0.0.1:32803"
+metrics_url = "http://127.0.0.1:32804/metrics"
+
+[nodes.validator]
+metrics_url = "http://127.0.0.1:32810/metrics"

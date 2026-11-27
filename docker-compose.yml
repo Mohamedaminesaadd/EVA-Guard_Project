@@ -1,0 +1,96 @@
+
+services:
+  geth1:
+    image: ethereum/client-go:stable
+    container_name: geth1
+    command:
+      - --dev
+      - --dev.period=5
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=eth,net,web3
+      - --http.corsdomain=*
+      - --port=30303
+    ports:
+      - "127.0.0.1:8545:8545"
+    volumes:
+      - ./data/node1:/root/.ethereum
+    networks:
+      - eva-net
+
+  geth2:
+    image: ethereum/client-go:stable
+    container_name: geth2
+    command:
+      - --dev
+      - --dev.period=5
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=eth,net,web3
+      - --port=30303
+    ports:
+      - "127.0.0.1:8546:8545"
+    volumes:
+      - ./data/node2:/root/.ethereum
+    networks:
+      - eva-net
+
+  geth3:
+    image: ethereum/client-go:stable
+    container_name: geth3
+    command:
+      - --dev
+      - --dev.period=5
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=eth,net,web3
+      - --port=30303
+    ports:
+      - "127.0.0.1:8547:8545"
+    volumes:
+      - ./data/node3:/root/.ethereum
+    networks:
+      - eva-net
+
+  geth4:
+    image: ethereum/client-go:stable
+    container_name: geth4
+    command:
+      - --dev
+      - --dev.period=5
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=eth,net,web3
+      - --port=30303
+    ports:
+      - "127.0.0.1:8548:8545"
+    volumes:
+      - ./data/node4:/root/.ethereum
+    networks:
+      - eva-net
+
+  geth5:
+    image: ethereum/client-go:stable
+    container_name: geth5
+    command:
+      - --dev
+      - --dev.period=5
+      - --http
+      - --http.addr=0.0.0.0
+      - --http.port=8545
+      - --http.api=eth,net,web3
+      - --port=30303
+    ports:
+      - "127.0.0.1:8549:8545"
+    volumes:
+      - ./data/node5:/root/.ethereum
+    networks:
+      - eva-net
+
+networks:
+  eva-net:
+    driver: bridge

@@ -1,0 +1,261 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Security Overview</h1>
+      <p class="page-header__sub">Real-time posture of the monitored Ethereum network — nodes, ML detections and alerts.</p>
+    </div>
+    <div class="page-header__actions">
+      <app-live-indicator [res]="summary()" />
+      <button class="btn btn--icon" type="button" (click)="refresh()" data-tip="Refresh now" aria-label="Refresh now">
+        <app-icon name="refresh-cw" [size]="14" />
+      </button>
+    </div>
+  </header>
+
+  <!-- KPI row -->
+  <section class="grid-kpi" aria-label="Key indicators">
+    <app-metric-card
+      label="Total Ethereum Nodes"
+      icon="server"
+      tone="primary"
+      [value]="kpis().total.value"
+      description="Geth + Lighthouse nodes monitored"
+      [trend]="kpis().total.trend"
+      [sparkline]="kpis().total.spark"
+      sparkColor="#635BFF"
+      [loading]="kpis().loading"
+      [stale]="kpis().stale"
+    />
+    <app-metric-card
+      label="Healthy Nodes"
+      icon="shield-check"
+      tone="success"
+      [value]="kpis().healthy.value"
+      [unit]="kpis().healthy.unit"
+      description="No attack predicted, resources nominal"
+      [trend]="kpis().healthy.trend"
+      [sparkline]="kpis().healthy.spark"
+      sparkColor="#12B76A"
+      [loading]="kpis().loading"
+      [stale]="kpis().stale"
+    />
+    <app-metric-card
+      label="Active Attacks"
+      icon="radar"
+      tone="critical"
+      [value]="kpis().attacks.value"
+      description="Nodes currently classified ECLIPSE or RPC_FLOODING"
+      [trend]="kpis().attacks.trend"
+      [sparkline]="kpis().attacks.spark"
+      sparkColor="#F04438"
+      [loading]="kpis().loading"
+      [stale]="kpis().stale"
+    />
+    <app-metric-card
+      label="Security Alerts"
+      icon="bell-ring"
+      tone="warning"
+      [value]="kpis().alerts.value"
+      description="Alerts reported by the backend"
+      [trend]="kpis().alerts.trend"
+      [sparkline]="kpis().alerts.spark"
+      sparkColor="#F79009"
+      [loading]="kpis().loading"
+      [stale]="kpis().stale"
+    />
+    <app-metric-card
+      label="Model Accuracy"
+      icon="brain-circuit"
+      tone="info"
+      [value]="kpis().accuracy.value"
+      unit="%"
+      [description]="kpis().accuracy.desc"
+      [badge]="kpis().accuracy.badge"
+      [badgeTitle]="kpis().accuracy.title"
+    />
+  </section>
+
+  @if (summary().status === 'error' && !summary().data) {
+    <div class="banner tone-critical">
+      <app-icon name="triangle-exclamation-point" [size]="15" />
+      <span><strong>KPIs unavailable.</strong> GET /api/v1/dashboard/summary failed — {{ summary().error?.message }}</span>
+    </div>
+  }
+
+  <!-- Network status + distribution -->
+  <section class="grid grid-main-side">
+    <div class="card">
+      <div class="card__header">
+        <div class="card__title">
+          <app-icon name="network" [size]="15" />
+          Network status
+          <span class="card__subtitle">{{ nodes().data?.length ?? 0 }} nodes</span>
+        </div>
+        <a routerLink="/nodes" class="btn btn--sm btn--ghost">All nodes <app-icon name="arrow-right" [size]="12" /></a>
+      </div>
+      <app-state [res]="nodes()" [empty]="(nodes().data?.length ?? 0) === 0" emptyTitle="No nodes reported" emptyMessage="GET /api/v1/nodes returned an empty list." emptyIcon="server">
+        <app-data-table
+          [columns]="nodeColumns"
+          [rows]="nodes().data ?? []"
+          [trackKey]="nodeKey"
+          [clickable]="true"
+          [compact]="true"
+          [initialSort]="{ key: 'node_id', dir: 'asc' }"
+          (rowClick)="openNode($event)"
+        >
+          <ng-template appCell="node_id" let-n>
+            <span class="node-id mono">{{ n.node_id }}</span>
+          </ng-template>
+          <ng-template appCell="status" let-n>
+            <app-status-badge kind="health" [value]="n.status" [title]="n.statusDerived ? 'Derived by the UI from metrics and ML prediction' : 'Reported by the backend'" />
+          </ng-template>
+          <ng-template appCell="threat" let-n>
+            @if (n.latest_prediction) {
+              <app-status-badge kind="attack" [value]="n.latest_prediction.prediction" />
+            } @else {
+              <span class="na">—</span>
+            }
+          </ng-template>
+          <ng-template appCell="confidence" let-n>
+            <app-confidence [value]="n.latest_prediction?.confidence ?? null" [label]="n.latest_prediction?.prediction ?? null" />
+          </ng-template>
+          <ng-template appCell="cpu" let-n>
+            <span class="meter">
+              <span class="meter__bar"><span [style.width.%]="n.metrics.cpu_usage_percent ?? 0" [class.is-hot]="(n.metrics.cpu_usage_percent ?? 0) >= 85"></span></span>
+              <span class="mono">{{ n.metrics.cpu_usage_percent | percent100 }}</span>
+            </span>
+          </ng-template>
+          <ng-template appCell="memory" let-n>
+            <span class="mono" [attr.title]="memPct(n) !== null ? (memPct(n) | percent100) + ' of ' + (n.metrics.memory_total_mb | mb) : null">
+              {{ n.metrics.memory_used_mb | mb }}
+            </span>
+          </ng-template>
+          <ng-template appCell="peers" let-n>
+            {{ n.metrics.peer_count | num }}
+          </ng-template>
+          <ng-template appCell="updated" let-n>
+            <span class="mono subtle">{{ n.last_update | ago: clock.now() }}</span>
+          </ng-template>
+        </app-data-table>
+      </app-state>
+    </div>
+
+    <app-chart-card
+      title="Attack distribution"
+      subtitle="ML classifications by class"
+      icon="chart-pie"
+      [height]="270"
+      [res]="distribution()"
+      [empty]="distributionTotal() === 0"
+      emptyTitle="No predictions yet"
+    >
+      <div [appEchart]="distributionOptions()"></div>
+    </app-chart-card>
+  </section>
+
+  <!-- Timeline + recent alerts -->
+  <section class="grid grid-main-side">
+    <app-chart-card
+      title="Threat timeline"
+      [subtitle]="'Predictions per bucket · ' + attackCountInTimeline() + ' attack classifications in view'"
+      icon="activity"
+      [height]="300"
+      [res]="timeline()"
+      [empty]="(timeline().data?.length ?? 0) === 0"
+      emptyTitle="No timeline data"
+      emptyMessage="GET /api/v1/dashboard/timeline returned no points."
+    >
+      <div class="timeline">
+        <div class="timeline__bars" [appEchart]="timelineBarOptions()"></div>
+        @if (hasConfidence()) {
+          <div class="timeline__label">Mean ML confidence</div>
+          <div class="timeline__conf" [appEchart]="timelineConfidenceOptions()"></div>
+        }
+      </div>
+    </app-chart-card>
+
+    <div class="card alerts-card">
+      <div class="card__header">
+        <div class="card__title">
+          <app-icon name="bell-ring" [size]="15" />
+          Recent alerts
+          @if (activeAlertCount() > 0) {
+            <span class="pill tone-critical alerts-card__count">{{ activeAlertCount() }} active</span>
+          }
+        </div>
+        <a routerLink="/alerts" class="btn btn--sm btn--ghost">View all <app-icon name="arrow-right" [size]="12" /></a>
+      </div>
+      <app-state [res]="alerts()" [empty]="recentAlerts().length === 0" emptyTitle="No alerts" emptyMessage="No security alert has been raised." emptyIcon="shield-check" [compact]="true">
+        <ul class="alert-list">
+          @for (a of recentAlerts(); track a.id) {
+            <li class="alert-row" [class.is-resolved]="a.status === 'resolved'">
+              <span class="alert-row__sev sev-{{ a.severity }}"></span>
+              <div class="alert-row__main">
+                <div class="alert-row__title">
+                  <app-status-badge kind="severity" [value]="a.severity" />
+                  <span class="alert-row__type">{{ attackLabel[a.attack_type] }}</span>
+                </div>
+                <div class="alert-row__meta mono">
+                  <a [routerLink]="['/nodes', a.node_id]">{{ a.node_id }}</a>
+                  <span>·</span>
+                  <span>{{ a.confidence | pct }}</span>
+                  <span>·</span>
+                  <span [attr.title]="a.timestamp">{{ a.timestamp | ago: clock.now() }}</span>
+                </div>
+              </div>
+              <app-status-badge kind="alert" [value]="a.status" />
+            </li>
+          }
+        </ul>
+      </app-state>
+    </div>
+  </section>
+
+  <!-- Incidents opened by the ML detector and investigated by the AI agents -->
+  <section class="card alerts-card">
+    <div class="card__header">
+      <div class="card__title">
+        <app-icon name="shield-exclamation-point" [size]="15" />
+        Recent incidents
+        @if (ongoingInvestigations() > 0) {
+          <span class="pill tone-warning alerts-card__count">{{ ongoingInvestigations() }} investigating</span>
+        }
+        @if (confirmedIncidents() > 0) {
+          <span class="pill tone-critical alerts-card__count">{{ confirmedIncidents() }} confirmed</span>
+        }
+      </div>
+      <a routerLink="/incidents" class="btn btn--sm btn--ghost">View all <app-icon name="arrow-right" [size]="12" /></a>
+    </div>
+    <app-state
+      [res]="incidents()"
+      [empty]="recentIncidents().length === 0"
+      emptyTitle="No incidents"
+      emptyMessage="No attack has been detected with enough confidence to open an incident."
+      emptyIcon="shield-check"
+      [compact]="true"
+    >
+      <ul class="alert-list">
+        @for (i of recentIncidents(); track i.incident_id) {
+          <li class="alert-row">
+            <span class="alert-row__sev sev-{{ verdictSeverity[i.displayVerdict] }}"></span>
+            <div class="alert-row__main">
+              <div class="alert-row__title">
+                <app-status-badge kind="attack" [value]="i.attack_type" />
+                <a class="alert-row__type mono" [routerLink]="['/incidents', i.incident_id]">{{ i.incident_id.slice(0, 8) }}</a>
+              </div>
+              <div class="alert-row__meta mono">
+                <a [routerLink]="['/nodes', i.node_id]">{{ i.node_id }}</a>
+                <span>·</span>
+                <span>ML {{ i.ml_confidence | pct }}</span>
+                <span>·</span>
+                <span [attr.title]="i.time">{{ i.time | ago: clock.now() }}</span>
+              </div>
+            </div>
+            <app-status-badge kind="investigation" [value]="i.investigation_status" />
+            <app-status-badge kind="verdict" [value]="i.displayVerdict" />
+          </li>
+        }
+      </ul>
+    </app-state>
+  </section>
+</div>

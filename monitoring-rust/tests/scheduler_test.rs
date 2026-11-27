@@ -1,4 +1,3 @@
-
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
@@ -39,10 +38,8 @@ async fn read_request(socket: &mut TcpStream) -> String {
             let body_start = pos + 4;
 
             if buffer.len() >= body_start + content_length {
-                return String::from_utf8_lossy(
-                    &buffer[body_start..body_start + content_length],
-                )
-                .into_owned();
+                return String::from_utf8_lossy(&buffer[body_start..body_start + content_length])
+                    .into_owned();
             }
         }
     }
@@ -259,8 +256,7 @@ async fn collect_once_creates_and_persists_observation() {
 
     let client = GethClient::new(&config).unwrap();
 
-    let mut scheduler =
-        MonitoringScheduler::new(&client, &config, "test-node").unwrap();
+    let mut scheduler = MonitoringScheduler::new(&client, &config, "test-node").unwrap();
 
     let observation = scheduler.collect_once().await.unwrap();
 
@@ -311,8 +307,7 @@ async fn scheduler_continues_when_geth_is_unavailable() {
     let client = GethClient::new(&config).unwrap();
 
     let mut scheduler =
-        MonitoringScheduler::new(&client, &config, "test-node-unavailable")
-            .unwrap();
+        MonitoringScheduler::new(&client, &config, "test-node-unavailable").unwrap();
 
     let observation = scheduler.collect_once().await.unwrap();
 
@@ -351,9 +346,7 @@ async fn scheduler_handles_disabled_admin_namespace() {
 
     let client = GethClient::new(&config).unwrap();
 
-    let mut scheduler =
-        MonitoringScheduler::new(&client, &config, "test-node-no-admin")
-            .unwrap();
+    let mut scheduler = MonitoringScheduler::new(&client, &config, "test-node-no-admin").unwrap();
 
     let observation = scheduler.collect_once().await.unwrap();
 
@@ -396,9 +389,7 @@ async fn scheduler_detects_complete_peer_rotation() {
 
     let client = GethClient::new(&config).unwrap();
 
-    let mut scheduler =
-        MonitoringScheduler::new(&client, &config, "peer-rotation-test")
-            .unwrap();
+    let mut scheduler = MonitoringScheduler::new(&client, &config, "peer-rotation-test").unwrap();
 
     // Cycle 1: peers A1 to A50.
     let first = scheduler.collect_once().await.unwrap();
@@ -443,41 +434,4 @@ async fn scheduler_detects_complete_peer_rotation() {
     assert_eq!(second_saved["peer_churn_count"], 100);
 
     let _ = std::fs::remove_file(output_file);
-}
-
-
-#[tokio::test]
-async fn scheduler_handles_empty_peer_list() {
-    let (rpc_url, _server) = spawn_fake_geth_empty_peers().await;
-
-    let temp_dir = tempfile::tempdir().unwrap();
-    let output_file = temp_dir.path().join("observations.jsonl");
-
-    let config = Config {
-        rpc_url,
-        output_file: output_file.clone(),
-        ..Config::default()
-    };
-
-    let client = GethClient::new(&config).unwrap();
-
-    let mut scheduler =
-        MonitoringScheduler::new(&client, &config, "test-node".to_string())
-            .unwrap();
-
-    let observation = scheduler.collect_once().await.unwrap();
-
-    assert_eq!(observation.p2p.peer_count, Some(0));
-    assert_eq!(observation.p2p.admin_peer_count, Some(0));
-    assert_eq!(observation.p2p.peer_details_available, Some(true));
-
-    assert_eq!(observation.p2p.new_peers, None);
-    assert_eq!(observation.p2p.disconnected_peers, None);
-    assert_eq!(observation.p2p.peer_churn_count, None);
-
-    assert_eq!(observation.rpc.rpc_available, Some(true));
-
-    assert!(output_file.exists());
-
-    println!("Empty peer list test passed");
 }

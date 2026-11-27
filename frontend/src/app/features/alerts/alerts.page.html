@@ -1,0 +1,167 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Security Alerts</h1>
+      <p class="page-header__sub">Incident queue raised from ML detections — triage, acknowledge and resolve.</p>
+    </div>
+    <div class="page-header__actions">
+      <app-live-indicator [res]="res()" />
+    </div>
+  </header>
+
+  @if (!service.backendMutationsSupported) {
+    <div class="banner tone-info">
+      <app-icon name="info" [size]="15" />
+      <span>
+        <strong>Acknowledge / Resolve are local UI-only actions.</strong>
+        The API exposes <code>GET /api/v1/alerts</code> only — no mutation endpoint yet. Changes are kept in this browser and tagged <span class="pill pill--local">local</span>.
+        @if (localCount() > 0) {
+          {{ localCount() }} alert(s) currently modified locally.
+        }
+      </span>
+    </div>
+  }
+
+  <!-- Severity overview -->
+  <section class="sev-strip">
+    @for (s of severityOptions; track s) {
+      <button type="button" class="sev-tile tone-{{ severityTone[s] }}" [class.is-active]="severities().has(s)" (click)="toggleSeverity(s)" [attr.aria-pressed]="severities().has(s)">
+        <span class="sev-tile__bar"></span>
+        <span class="sev-tile__label">{{ severityLabel[s] }}</span>
+        <span class="sev-tile__count mono">{{ severityCounts()[s] ?? 0 }}</span>
+        <span class="sev-tile__hint">open</span>
+      </button>
+    }
+  </section>
+
+  <section class="card">
+    <div class="alerts-head">
+      <div class="tabs" role="tablist" aria-label="Alert status">
+        @for (t of tabs; track t.value) {
+          <button type="button" role="tab" class="tab" [class.is-active]="tab() === t.value" [attr.aria-selected]="tab() === t.value" (click)="tab.set(t.value)">
+            {{ t.label }} <span class="tab__count mono">{{ counts()[t.value] }}</span>
+          </button>
+        }
+      </div>
+      <div class="alerts-filters">
+        <div class="input-icon">
+          <app-icon name="search" [size]="14" />
+          <input class="input" type="search" placeholder="Search node or alert ID…" [value]="nodeQuery()" (input)="nodeQuery.set($any($event.target).value)" aria-label="Search by node" />
+        </div>
+        <select class="select" [value]="attackFilter()" (change)="attackFilter.set($any($event.target).value)" aria-label="Attack type">
+          <option value="all">All attack types</option>
+          @for (t of attackTypes(); track t) {
+            <option [value]="t">{{ t }}</option>
+          }
+        </select>
+        <select class="select" [value]="sort()" (change)="sort.set($any($event.target).value)" aria-label="Sort">
+          <option value="newest">Newest first</option>
+          <option value="severity">Severity first</option>
+        </select>
+      </div>
+    </div>
+
+    <app-state [res]="res()" [empty]="visible().length === 0" [emptyTitle]="tab() === 'active' ? 'No active alert' : 'No alert matches'" [emptyMessage]="tab() === 'active' ? 'The network is quiet — nothing needs triage.' : 'Try another tab or clear the filters.'" emptyIcon="shield-check">
+      <ul class="incidents">
+        @for (a of visible(); track a.id) {
+          <li
+            class="incident tone-{{ severityTone[a.severity] }}"
+            [class.is-resolved]="a.status === 'resolved'"
+            [class.is-selected]="drawerOpen() && selectedId() === a.id"
+            tabindex="0"
+            (click)="open(a)"
+            (keydown.enter)="open(a)"
+          >
+            <span class="incident__icon"><app-icon [name]="attackIcon[a.attack_type]" [size]="16" /></span>
+            <div class="incident__main">
+              <div class="incident__title">
+                <span>{{ title(a) }}</span>
+                <span class="mono incident__node">{{ a.node_id }}</span>
+              </div>
+              @if (a.message) {
+                <div class="incident__msg">{{ a.message }}</div>
+              }
+              <div class="incident__meta mono">
+                <span>{{ a.id }}</span>
+                <span>·</span>
+                <span [attr.title]="a.timestamp | dt">{{ a.timestamp | ago: clock.now() }}</span>
+              </div>
+            </div>
+            <div class="incident__conf">
+              <app-confidence [value]="a.confidence" [label]="a.attack_type" />
+            </div>
+            <div class="incident__badges">
+              <app-status-badge kind="severity" [value]="a.severity" />
+              <app-status-badge kind="alert" [value]="a.status" />
+              @if (a.locallyModified) {
+                <span class="pill pill--local" title="Status changed locally in this browser">local</span>
+              }
+            </div>
+            <div class="incident__actions">
+              @if (a.status === 'active') {
+                <button class="btn btn--sm" type="button" (click)="acknowledge(a, $event)" data-tip="Local UI-only" aria-label="Acknowledge (local only)">
+                  <app-icon name="eye" [size]="13" /> Ack
+                </button>
+              }
+              @if (a.status !== 'resolved') {
+                <button class="btn btn--sm" type="button" (click)="resolve(a, $event)" data-tip="Local UI-only" aria-label="Resolve (local only)">
+                  <app-icon name="check" [size]="13" /> Resolve
+                </button>
+              }
+              @if (a.locallyModified) {
+                <button class="btn btn--sm btn--ghost btn--icon" type="button" (click)="reopen(a, $event)" data-tip="Undo local change" aria-label="Undo local change">
+                  <app-icon name="undo-2" [size]="13" />
+                </button>
+              }
+            </div>
+          </li>
+        }
+      </ul>
+    </app-state>
+  </section>
+</div>
+
+<app-drawer [(open)]="drawerOpen" [title]="selected()?.id ?? ''" eyebrow="Security alert" [width]="480">
+  @if (selected(); as a) {
+    <div class="drawer-hero tone-{{ severityTone[a.severity] }}">
+      <div class="row">
+        <app-status-badge kind="severity" [value]="a.severity" [solid]="true" />
+        <app-status-badge kind="alert" [value]="a.status" />
+        @if (a.locallyModified) {
+          <span class="pill pill--local">local</span>
+        }
+      </div>
+      <div class="drawer-hero__title">{{ title(a) }}</div>
+      @if (a.message) {
+        <p class="muted">{{ a.message }}</p>
+      }
+    </div>
+
+    <dl class="kv">
+      <dt>Alert ID</dt><dd class="mono">{{ a.id }}</dd>
+      <dt>Node</dt><dd><a class="mono" [routerLink]="['/nodes', a.node_id]">{{ a.node_id }}</a></dd>
+      <dt>Attack type</dt><dd><app-status-badge kind="attack" [value]="a.attack_type" /></dd>
+      <dt>Confidence</dt><dd><app-confidence [value]="a.confidence" [label]="a.attack_type" /></dd>
+      <dt>Detected</dt><dd class="mono">{{ a.timestamp | dt }}</dd>
+      <dt>Backend status</dt><dd><app-status-badge kind="alert" [value]="a.backendStatus" /></dd>
+    </dl>
+
+    <div class="drawer-actions">
+      <h3 class="drawer-h">Triage <span class="pill pill--local">local only</span></h3>
+      <div class="row row--wrap">
+        <button class="btn" type="button" [disabled]="a.status !== 'active'" (click)="acknowledge(a)"><app-icon name="eye" [size]="14" /> Mark as acknowledged</button>
+        <button class="btn" type="button" [disabled]="a.status === 'resolved'" (click)="resolve(a)"><app-icon name="check" [size]="14" /> Mark as resolved</button>
+        @if (a.locallyModified) {
+          <button class="btn btn--ghost" type="button" (click)="reopen(a)"><app-icon name="undo-2" [size]="14" /> Undo</button>
+        }
+      </div>
+      <p class="muted small">Pending backend endpoint: <code>PATCH /api/v1/alerts/{{ '{' }}id{{ '}' }}</code></p>
+    </div>
+  }
+  <div drawer-footer class="drawer-footer">
+    @if (selected(); as a) {
+      <a class="btn" [routerLink]="['/nodes', a.node_id]"><app-icon name="server" [size]="14" /> Open node</a>
+      <a class="btn btn--primary" routerLink="/agent" [queryParams]="{ node: a.node_id, alert: a.id }"><app-icon name="bot" [size]="14" /> Investigate with AI agent</a>
+    }
+  </div>
+</app-drawer>

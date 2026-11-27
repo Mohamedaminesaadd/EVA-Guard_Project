@@ -1,0 +1,46 @@
+// Markdown content (agent messages) — global so [innerHTML] content is styled
+.md {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--eg-text);
+  overflow-wrap: anywhere;
+
+  & {
+    > *:first-child { margin-top: 0; }
+    > *:last-child { margin-bottom: 0; }
+    h1, h2, h3, h4 { font-size: 14px; font-weight: 600; margin: 12px 0 6px; }
+    p { margin: 6px 0; }
+    ul, ol { margin: 6px 0; padding-left: 20px; }
+    li { margin: 2px 0; }
+    code {
+      font-size: 12px;
+      background: var(--eg-surface-3);
+      border: 1px solid var(--eg-border);
+      padding: 0 4px;
+      border-radius: 4px;
+    }
+    pre {
+      background: var(--eg-sidebar);
+      color: #e4e7ec;
+      padding: 12px 14px;
+      border-radius: var(--eg-radius-lg);
+      overflow-x: auto;
+      margin: 8px 0;
+      code { background: transparent; border: 0; padding: 0; color: inherit; font-size: 12px; line-height: 1.55; }
+    }
+    table {
+      border-collapse: collapse;
+      margin: 8px 0;
+      font-size: 12.5px;
+      th, td { border: 1px solid var(--eg-border); padding: 5px 10px; text-align: left; }
+      th { background: var(--eg-surface-2); font-weight: 600; }
+    }
+    blockquote {
+      margin: 8px 0;
+      padding: 4px 12px;
+      border-left: 3px solid var(--eg-border-strong);
+      color: var(--eg-text-2);
+    }
+  }
+}
+

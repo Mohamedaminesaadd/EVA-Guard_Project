@@ -1,5 +1,5 @@
-pub mod blockchain;
-pub mod network;
-pub mod p2p;
-pub mod rpc;
+pub mod beacon;
+pub mod container;
+pub mod geth;
 pub mod system;
+pub mod validator;

@@ -1,0 +1,102 @@
+<div class="page">
+  <header class="page-header">
+    <div>
+      <h1>Ethereum Nodes</h1>
+      <p class="page-header__sub">Geth execution clients with Lighthouse beacon and validator clients.</p>
+    </div>
+    <div class="page-header__actions">
+      <app-live-indicator [res]="res()" />
+      <div class="segmented" role="radiogroup" aria-label="View mode">
+        <button type="button" role="radio" [class.is-active]="view() === 'table'" [attr.aria-checked]="view() === 'table'" (click)="setView('table')">
+          <app-icon name="list" [size]="13" /> Table
+        </button>
+        <button type="button" role="radio" [class.is-active]="view() === 'grid'" [attr.aria-checked]="view() === 'grid'" (click)="setView('grid')">
+          <app-icon name="layout-grid" [size]="13" /> Cards
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <div class="input-icon search">
+      <app-icon name="search" [size]="14" />
+      <input class="input" type="search" placeholder="Filter by node ID…" [value]="query()" (input)="query.set($any($event.target).value)" aria-label="Filter nodes" />
+    </div>
+    <span class="toolbar__divider"></span>
+    @for (s of statuses; track s) {
+      <button type="button" class="chip" [class.is-active]="statusFilter() === s" (click)="statusFilter.set(s)" [attr.aria-pressed]="statusFilter() === s">
+        {{ s === 'all' ? 'All' : healthLabel[s] }} <span class="chip__count">{{ counts()[s] ?? 0 }}</span>
+      </button>
+    }
+  </div>
+
+  <app-state [res]="res()" [empty]="filtered().length === 0" [emptyTitle]="nodes().length ? 'No node matches the filters' : 'No nodes reported'" emptyIcon="server">
+    @if (view() === 'table') {
+      <section class="card">
+        <app-data-table
+          [columns]="columns"
+          [rows]="filtered()"
+          [trackKey]="nodeKey"
+          [clickable]="true"
+          [initialSort]="{ key: 'node_id', dir: 'asc' }"
+          (rowClick)="open($event)"
+        >
+          <ng-template appCell="node_id" let-n><a class="node-link mono" [routerLink]="['/nodes', n.node_id]" (click)="$event.stopPropagation()">{{ n.node_id }}</a></ng-template>
+          <ng-template appCell="status" let-n><app-status-badge kind="health" [value]="n.status" /></ng-template>
+          <ng-template appCell="geth" let-n><app-status-badge kind="component" [value]="n.components.geth" /></ng-template>
+          <ng-template appCell="beacon" let-n><app-status-badge kind="component" [value]="n.components.beacon" /></ng-template>
+          <ng-template appCell="validator" let-n><app-status-badge kind="component" [value]="n.components.validator" /></ng-template>
+          <ng-template appCell="cpu" let-n>{{ n.metrics.cpu_usage_percent | percent100 }}</ng-template>
+          <ng-template appCell="memory" let-n>{{ n.metrics.memory_used_mb | mb }}</ng-template>
+          <ng-template appCell="peers" let-n>{{ n.metrics.peer_count | num }}</ng-template>
+          <ng-template appCell="latency" let-n>{{ n.metrics.rpc_latency_ms | ms }}</ng-template>
+          <ng-template appCell="block" let-n>{{ n.metrics.block_number | num }}</ng-template>
+          <ng-template appCell="ml" let-n>
+            @if (n.latest_prediction) {
+              <span class="ml-cell">
+                <app-status-badge kind="attack" [value]="n.latest_prediction.prediction" />
+                <span class="mono subtle">{{ n.latest_prediction.confidence | pct }}</span>
+              </span>
+            } @else {
+              <span class="na">—</span>
+            }
+          </ng-template>
+        </app-data-table>
+      </section>
+    } @else {
+      <section class="node-grid">
+        @for (n of filtered(); track n.node_id) {
+          <a class="node-card card tone-{{ n.status === 'healthy' ? 'success' : n.status === 'critical' ? 'critical' : n.status === 'warning' ? 'warning' : 'offline' }}" [routerLink]="['/nodes', n.node_id]">
+            <div class="node-card__head">
+              <app-icon name="server" [size]="16" />
+              <span class="node-card__id mono">{{ n.node_id }}</span>
+              <app-status-badge kind="health" [value]="n.status" />
+            </div>
+            <div class="node-card__components">
+              <div><span>Geth</span><app-status-badge kind="component" [value]="n.components.geth" /></div>
+              <div><span>Beacon</span><app-status-badge kind="component" [value]="n.components.beacon" /></div>
+              <div><span>Validator</span><app-status-badge kind="component" [value]="n.components.validator" /></div>
+            </div>
+            <div class="node-card__metrics">
+              <div><span>CPU</span><b class="mono">{{ n.metrics.cpu_usage_percent | percent100 }}</b></div>
+              <div><span>Memory</span><b class="mono">{{ n.metrics.memory_used_mb | mb }}</b></div>
+              <div><span>Peers</span><b class="mono">{{ n.metrics.peer_count | num }}</b></div>
+              <div><span>RPC latency</span><b class="mono">{{ n.metrics.rpc_latency_ms | ms }}</b></div>
+              <div class="wide"><span>Latest block</span><b class="mono">{{ n.metrics.block_number | num }}</b></div>
+            </div>
+            <div class="node-card__ml">
+              <span class="node-card__ml-label">ML classification</span>
+              @if (n.latest_prediction) {
+                <app-status-badge kind="attack" [value]="n.latest_prediction.prediction" />
+                <app-confidence [value]="n.latest_prediction.confidence" [label]="n.latest_prediction.prediction" />
+              } @else {
+                <span class="na">No prediction</span>
+              }
+            </div>
+            <div class="node-card__foot mono">Updated {{ n.last_update | ago: clock.now() }}</div>
+          </a>
+        }
+      </section>
+    }
+  </app-state>
+</div>

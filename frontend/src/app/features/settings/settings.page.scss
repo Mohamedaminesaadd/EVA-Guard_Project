@@ -1,0 +1,106 @@
+@use 'tokens' as *;
+
+.settings {
+  max-width: 1100px;
+}
+code {
+  font-size: 11.5px;
+}
+.stack-lg {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.sub {
+  font-size: 13px;
+}
+.url-input {
+  width: 340px;
+  max-width: 100%;
+}
+.source {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+@media (max-width: $breakpoint-md) {
+  .source { grid-template-columns: minmax(0, 1fr); }
+}
+.source__opt {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  text-align: left;
+  padding: 14px;
+  border: 1px solid var(--eg-border-strong);
+  border-radius: var(--eg-radius-lg);
+  background: var(--eg-surface);
+  cursor: pointer;
+  font: inherit;
+  color: var(--eg-text);
+  &:hover { border-color: var(--eg-text-3); }
+  &.is-active { border-color: var(--eg-primary); box-shadow: 0 0 0 1px var(--eg-primary) inset; background: var(--eg-primary-50); }
+  &:focus-visible { outline: none; box-shadow: var(--eg-focus-ring); }
+}
+.source__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: var(--tone-bg);
+  color: var(--tone);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.source__text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  strong { font-size: 13.5px; }
+  span { font-size: 12px; color: var(--eg-text-2); line-height: 1.45; }
+}
+.conn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--tone-text);
+  text-transform: capitalize;
+}
+.diag {
+  margin-top: 10px;
+  border: 1px solid var(--eg-border);
+  border-radius: var(--eg-radius);
+}
+.res {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--tone-text);
+  font-size: 12px;
+  white-space: normal;
+}
+.local__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--eg-border);
+  font-size: 12.5px;
+  color: var(--eg-text-2);
+  strong { color: var(--eg-text); font-weight: 600; }
+  &:last-child { border-bottom: 0; }
+}
+.cleared {
+  background: var(--tone-bg);
+  color: var(--tone-text);
+}
+.about {
+  font-size: 11px;
+  color: var(--eg-text-3);
+  text-align: center;
+  padding: 8px 0;
+}

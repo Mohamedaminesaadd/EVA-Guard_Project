@@ -1,0 +1,115 @@
+@use 'tokens' as *;
+
+.node-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  display: inline-block;
+  flex-shrink: 0;
+}
+.refresh-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--eg-text-2);
+}
+
+.hostmap {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 10px;
+  padding: 12px;
+}
+.host {
+  position: relative;
+  border: 1px solid var(--eg-border);
+  border-left: 3px solid var(--tone);
+  border-radius: var(--eg-radius);
+  background: var(--eg-surface);
+  transition: border-color var(--eg-transition), opacity var(--eg-transition), box-shadow var(--eg-transition);
+  &:hover { box-shadow: var(--eg-shadow-sm); }
+  &.is-dim { opacity: 0.45; }
+}
+.host__main {
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 10px 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font: inherit;
+  color: inherit;
+  border-radius: var(--eg-radius);
+  &:focus-visible { box-shadow: var(--eg-focus-ring); outline: none; }
+}
+.host__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 18px;
+}
+.host__id {
+  font-weight: 600;
+  font-size: 13px;
+  flex: 1;
+}
+.host__metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  div {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  span {
+    font-size: 10px;
+    color: var(--eg-text-3);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+  }
+  b {
+    font-size: 11.5px;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+}
+.host__link {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  color: var(--eg-text-3);
+  &:hover { color: var(--eg-primary); }
+}
+
+.chart-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+@media (max-width: 1500px) {
+  .chart-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: $breakpoint-md) {
+  .chart-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+.cards-dense {
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+}
+
+.validator-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: stretch;
+}
+@media (max-width: $breakpoint-lg) {
+  .validator-row { grid-template-columns: minmax(0, 1fr); }
+}

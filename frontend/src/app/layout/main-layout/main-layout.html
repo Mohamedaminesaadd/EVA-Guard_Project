@@ -1,0 +1,60 @@
+<a class="skip-link" href="#main-content">Skip to content</a>
+
+<div class="shell">
+  <app-sidebar
+    [collapsed]="collapsed()"
+    [mobileOpen]="mobileOpen()"
+    [alertCount]="activeAlertCount()"
+    (toggleCollapse)="toggleCollapse()"
+    (closeMobile)="mobileOpen.set(false)"
+  />
+  @if (mobileOpen()) {
+    <div class="shell__scrim" (click)="mobileOpen.set(false)" aria-hidden="true"></div>
+  }
+
+  <div class="shell__main" [style.--eg-banner-h.px]="settings.isDemo() || connection.state() === 'disconnected' ? 41 : 0">
+    <app-topbar [nodes]="nodes()" [alerts]="alerts()" (menuClick)="mobileOpen.set(true)" />
+
+    @if (settings.isDemo()) {
+      <div class="shell__banner tone-warning" role="status">
+        <app-icon name="flask-conical" [size]="15" />
+        <span><strong>Demo mode</strong><span class="hide-sm"> — every value on screen is simulated (node-01…node-05 are placeholders). No FastAPI data is shown.</span></span>
+        <button class="btn btn--sm" type="button" (click)="useLive()">Switch to live data</button>
+      </div>
+    } @else if (connection.state() === 'disconnected') {
+      <div class="shell__banner tone-critical" role="alert">
+        <app-icon name="unplug" [size]="15" />
+        <span>
+          <strong>FastAPI backend unreachable</strong><span class="hide-sm"> at <code>{{ settings.apiBaseUrl() }}</code> —
+          {{ connection.lastError()?.message }}. Panels keep the last data received and are flagged as stale.</span>
+        </span>
+        <span class="shell__banner-actions">
+          <button class="btn btn--sm" type="button" (click)="retry()">Retry now</button>
+          <button class="btn btn--sm btn--ghost" type="button" (click)="useDemo()">Use demo data</button>
+        </span>
+      </div>
+    }
+
+    <main id="main-content" class="shell__content" tabindex="-1">
+      <router-outlet />
+    </main>
+  </div>
+</div>
+
+<div class="toasts" aria-live="polite">
+  @for (t of notifications.toasts(); track t.id) {
+    <div class="toast tone-{{ t.tone }}" role="status">
+      <span class="toast__icon"><app-icon [name]="t.icon" [size]="15" /></span>
+      <div class="toast__text">
+        <div class="toast__title">{{ t.title }}</div>
+        <div class="toast__msg mono">{{ t.message }}</div>
+      </div>
+      @if (t.link) {
+        <a class="btn btn--sm btn--ghost" [routerLink]="t.link" (click)="notifications.dismissToast(t.id)">View</a>
+      }
+      <button class="btn btn--ghost btn--icon btn--sm" type="button" (click)="notifications.dismissToast(t.id)" aria-label="Dismiss">
+        <app-icon name="x" [size]="13" />
+      </button>
+    </div>
+  }
+</div>

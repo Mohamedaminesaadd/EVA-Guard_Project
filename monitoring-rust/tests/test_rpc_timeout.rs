@@ -1,4 +1,3 @@
-
 use monitoring_rust::config::Config;
 use monitoring_rust::geth::client::GethClient;
 use monitoring_rust::monitoring::scheduler::MonitoringScheduler;
@@ -9,9 +8,7 @@ use tokio::net::TcpListener;
 #[tokio::test]
 async fn scheduler_handles_rpc_timeout() {
     // 1. Create a fake Geth server.
-    let listener = TcpListener::bind("127.0.0.1:0")
-        .await
-        .unwrap();
+    let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
 
     let address = listener.local_addr().unwrap();
     let rpc_url = format!("http://{}", address);
@@ -48,12 +45,8 @@ async fn scheduler_handles_rpc_timeout() {
     // 3. Initialize client and scheduler.
     let client = GethClient::new(&config).unwrap();
 
-    let mut scheduler = MonitoringScheduler::new(
-        &client,
-        &config,
-        "test-node".to_string(),
-    )
-    .unwrap();
+    let mut scheduler =
+        MonitoringScheduler::new(&client, &config, "test-node".to_string()).unwrap();
 
     // 4. Collect observation.
     let start = Instant::now();
